@@ -1,0 +1,55 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="row">
+    <div class="container d-flex align-items-center flex-column">
+        <!-- Masthead Avatar Image-->
+        <img class="masthead-avatar mb-2" src="https://media-exp1.licdn.com/dms/image/C5103AQGeoCZxeqVBjg/profile-displayphoto-shrink_200_200/0/1517286113068?e=1613606400&v=beta&t=RsfyWFet7mxnBBTCAe4e2G0F4cuUQkJAFEQhwX3yGv0" alt="" />
+
+        <!-- Masthead Heading-->
+        <h1 class="masthead-heading text-uppercase mb-0">Omer Rosen</h1>
+        <!-- Icon Divider-->
+        <div class="divider-custom divider-light">
+            <div class="divider-custom-line"></div>
+            <div class="divider-custom-icon"><i class="fas fa-star"></i></div>
+            <div class="divider-custom-line"></div>
+        </div>
+        <!-- Masthead Subheading-->
+        <p class="masthead-subheading font-weight-light mb-0">Data Science - Computer Vision - Idiocy</p>
+    </div>
+</div>
+<br><br><br><br>
+<div class="container ">
+    <h2>Works:</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <a href={{url_for('about')}}>
+            <img class="img-fluid img-thumbnail rounded mx-auto d-block" src="https://image.shutterstock.com/image-photo/portrait-sexy-shirtless-muscular-man-260nw-1012660306.jpg" alt="" />
+            </a>
+            <!-- Masthead Heading-->
+            <h4 class="masthead-heading text-uppercase mb-0 text-center">Nudity detector</h4>
+            <!-- Icon Divider-->
+            <div class="divider-custom divider-light">
+                <div class="divider-custom-line"></div>
+                <div class="divider-custom-icon"><i class="fas fa-star"></i></div>
+                <div class="divider-custom-line"></div>
+            </div>
+            <p class="font-weight-light mb-0 text-center">Finds and removes nude images from your device</p>
+        </div>
+        <div class="col-md-6">
+            <a href={{url_for('inputYourTwitterIdForClassification')}}>
+            <img class="img-fluid img-thumbnail rounded mx-auto d-block" src="https://www.poynter.org/wp-content/uploads/2020/07/twitter_newspaper-1.png" alt="" />
+            </a>
+
+            <!-- Masthead Heading-->
+            <h4 class="masthead-heading text-uppercase mb-0 text-center">Twitter Classifier</h4>
+            <!-- Icon Divider-->
+            <div class="divider-custom divider-light">
+                <div class="divider-custom-line"></div>
+                <div class="divider-custom-icon"><i class="fas fa-star"></i></div>
+                <div class="divider-custom-line"></div>
+            </div>
+            <p class="masthead-subheading font-weight-light mb-0 text-center">Find your celebrity twitter-soulmate</p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

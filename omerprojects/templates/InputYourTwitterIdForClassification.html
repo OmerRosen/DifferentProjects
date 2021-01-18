@@ -1,0 +1,82 @@
+{% extends 'layout.html' %}
+{% block content %}
+
+<div class="content-section">
+    <a href={{url_for('twitterClassifier_Train')}}>Click here to train a new model</a>
+    <form method="post" action="">
+        {{ form.hidden_tag() }}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Select which users to compare</legend>
+            <div class="form-group">
+            {% for field in form %}
+                {% if field.type !="submit" %}
+                    <div class="form-group">
+                        {{ field.label(class='form-control-label') }}
+
+                        {% if field.errors %}
+                        {{ field(class='form-control form-control-lg is-invalid') }}
+                        <div class="invalid-feedback">
+                            {% for error in field.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                            {{ field(class='form-control form-control-lg') }}
+                        {% endif %}
+                    </div>
+                {% else %}
+                <div class="form-group">
+                    {{ field(class='btn btn-primary btn-outline-info') }}
+                </div>
+                {% endif %}
+            {% endfor %}
+            </div>
+        </fieldset>
+    </form>
+</div>
+<div class="container">
+    {% if testParam %}
+    <div class="content-section">
+        <div class="jumbotron" style="text-align: center !important;">
+            <div class="row">
+                <div class="col-xs-2">
+                    <h4>@{{randomUser_extandedDetails.index[0]}}</h4>
+                    <img src="{{randomUser_extandedDetails.profile_image_url.values[0]}}" class="img-circle img-responsive">
+                </div>
+                <div class="col-xs-4">
+                    <h5><b>Display Name</b>: {{randomUser_extandedDetails.name.values[0]}}</h5>
+                    <h5><b>Followers</b>: {{randomUser_extandedDetails.followers_count.values[0]}}</h5>
+                    <h5><b>Following</b>: {{randomUser_extandedDetails.friends_count.values[0]}}</h5>
+                    <br>
+                    <h5><b>Total Tweets</b>: {{randomUser_extandedDetails.statuses_count.values[0]}}</h5>
+                </div>
+                <div class="col-xs-6">
+                    <h5><b>Active Since</b>: {{randomUser_extandedDetails.created_at.values[0]}}</h5><br>
+                    <h6><b>Description</b>: {{randomUser_extandedDetails.description.values[0]}}</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid">
+    <div class="row justify-content-md-center"><h2>Most resembled users:</h2></div>
+    <div class="row justify-content-md-center">
+        {% for username, userInfo in twitsAndTheirSimilarity_summary.T.items() %}
+        <div class="col-xs-4 bg-info rounded" style="padding: 2px !important; margin: 2px">
+         <div class="col-xs-3" style="padding-left: 2px !important;">
+             <h3>#{{userInfo['matchRank']}}</h3>
+             <h5>@{{username}}</h5>
+             <img class="img-circle img-responsive" src="{{personsOfInterest_extandedDetails[username]['profile_image_url'].replace('_normal.jpg','_400x400.jpg')}}">
+             </div>
+         <div class="col-xs-9" style="padding-left: 25px !important;">
+<!--             <h3>#{num}</h3>-->
+             <h5>Display Name: {{personsOfInterest_extandedDetails[username]['name']}}</h5>
+             <h5>MatchingTweets: {{userInfo['TotalTweets']}}</h5>
+             <h5>Match percent: {{userInfo['Probability_Percent']*100}}</h5>
+         </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+{% endblock content %}
+

@@ -1,0 +1,116 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="content-section">
+    <form method="post" action="">
+        {{ form.hidden_tag() }}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Select which users to compare</legend>
+            <div class="form-group">
+                {{ form.personsOfInterestList.label(class='form-control-label') }}
+
+                {% if form.personsOfInterestList.errors %}
+                {{ form.personsOfInterestList(class='form-control form-control-lg is-invalid') }}
+                <div class="invalid-feedback">
+                    {% for error in form.username.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    {{ form.personsOfInterestList(class='form-control form-control-lg') }}
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.baseProjectName.label(class='form-control-label') }}
+                {% if form.baseProjectName.errors %}
+                {{ form.baseProjectName(class='form-control form-control-lg is-invalid') }}
+                <div class="invalid-feedback">
+                    {% for error in form.baseProjectName.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    {{ form.baseProjectName(class='form-control form-control-lg') }}
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.tweetsPerPerson.label(class='form-control-label') }}
+                {% if form.tweetsPerPerson.errors %}
+                {{ form.tweetsPerPerson(class='form-control form-control-lg is-invalid') }}
+                <div class="invalid-feedback">
+                    {% for error in form.tweetsPerPerson.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}twitterClassifier.html
+                    {{ form.tweetsPerPerson(class='form-control form-control-lg') }}
+                {% endif %}
+            </div>
+            <div class="form-check form-switch">
+                {% if form.shouldCollectComments.errors %}
+                {{ form.shouldCollectComments(class='form-control form-control-lg is-invalid') }}
+                <div class="invalid-feedback">
+                    {% for error in form.shouldCollectComments.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    {{ form.shouldCollectComments(class='form-check-input') }}
+                {% endif %}
+                {{ form.shouldCollectComments.label(class='form-check-label' 'checked') }}
+            </div>
+            <div class="form-check form-switch">
+                {% if form.shouldTrainFromStart.errors %}
+                {{ form.shouldTrainFromStart() }}
+                <div class="invalid-feedback">
+                    {% for error in form.shouldTrainFromStart.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    {{ form.shouldTrainFromStart(class='form-check-input') }}
+                {% endif %}
+                {{ form.shouldTrainFromStart.label(class='form-check-label') }}
+            </div>
+        </fieldset>
+        <div class="form-group">
+            {{ form.submit(class='btn btn-outline-info') }}
+        </div>
+    </form>
+</div>
+<div class="border-top pt-3">
+    {% if personsOfInterest_dict %}
+    <div class="container">
+<!--        <h1>Selected People of Interest</h1>-->
+        <legend class="border-bottom mb-4">Selected People of Interest</legend>
+        <div class="row">
+            {% for name, person in personsOfInterest_dict.items() %}
+            <div class="col-md-6">
+                <div class="border border-primary" style="padding: 45px !important; margin: 15px">
+                    <div class="row">
+                        <div class="col-xs-2">
+                            <img src="{{person.profile_image_url}}" class="img-circle img-responsive">
+                        </div>
+                    <div class="col-xs-4">
+                        <h3>@{{person.name}}</h3>
+                        <h5><b>Display Name</b>: {{person.screen_name}}</h5>
+                        <h5><b>Followers</b>: {{person.followers_count}}</h5>
+                        <h5><b>Following</b>: {{person.friends_count}}</h5>
+                        <br>
+                        <h5><b>Total Tweets</b>: {{person.statuses_count}}</h5>
+                    </div>
+                    <div class="col-xs-6">
+
+                    <h5><b>Active Since</b>: {{person.created_at}}</h5>
+                    <br>
+                    <h6><b>Description</b>: {{person.description}}</h6></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+<!--    <p>{{personsOfInterest_dict}}</p>-->
+    {% endif %}
+</div>
+{% endblock content %}
+
