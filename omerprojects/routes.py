@@ -1,9 +1,10 @@
-from flask import render_template, url_for, flash, redirect
-from omerprojects.forms import RegistrationForm, LoginForm, CollectTwitterUsers_ForTraining,InputYourTwitterIdForClassification
+from flask import render_template, url_for, flash, redirect,request
+from omerprojects.forms import RegistrationForm, LoginForm, CollectTwitterUsers_ForTraining,InputYourTwitterIdForClassification,NudityDetectorForm
 from omerprojects import app
 from omerprojects.TwitterClassifierFolder.pythonFiles.CollectAllAvailableModels import gatherAllAvailableModels
 from omerprojects.TwitterClassifierFolder.extractAndTrainClassifier import classifyPeopleOfInterest
 from omerprojects.TwitterClassifierFolder.whichTwitterPricessAreYou import analyseTweetsForRandomUser
+from werkzeug.utils import secure_filename
 
 import os
 import pandas as pd
@@ -145,3 +146,56 @@ def inputYourTwitterIdForClassification():
 
 
     return render_template('InputYourTwitterIdForClassification.html', title='Twitter Classifier', form=form)
+
+
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/nudityDetector", methods=['GET','POST'])
+def nudityDetector():
+    form = NudityDetectorForm()
+    try:
+        if request.method == 'POST':
+            files = request.files.getlist("file")
+            for file in files:
+                fileSavePath = os.path.join(app.config['UPLOAD_FOLDER'],secure_filename(file.filename))
+                file.save(fileSavePath)
+
+            flash(
+                'Process Completed. %s files were retrieved'%(len(files))
+                , category='success')
+
+            return render_template('InputYourTwitterIdForClassification.html', title='Nudity detector',
+                                   form=form
+                                   )
+    except Exception as e:
+        flash(
+            'Process Failed. Error: %s ' % (e)
+            , category='warning')
+
+    # if request.method == 'POST':
+    #     ## check if the post request has the file part
+    #     if 'file' not in request.files:
+    #         flash('No file part', category='warning')
+    #         return redirect(request.url)
+    #     file = request.files['file']
+    #     # if user does not select file, browser also
+    #     # submit an empty part without filename
+    #     if file.filename == '':
+    #         flash('No selected file')
+    #         return redirect(request.url)
+    #     if file and allowed_file(file.filename):
+    #         filename = secure_filename(file.filename)
+    #         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    #         return redirect(url_for('uploaded_file',
+    #                                 filename=filename))
+
+    return render_template('NudityDetector.html', title='Nudity Detector', form=form)
+
+
+
+
+

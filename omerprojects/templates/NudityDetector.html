@@ -1,0 +1,26 @@
+{% extends 'layout.html' %}
+{% block content %}
+
+<!--<a href={{url_for('twitterClassifier_Train')}}>Click here to train a new model</a>-->
+<div class="content-section">
+    <form method="post" action="" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Select which users to compare</legend>
+            <div class="form-group">
+                <label>Select folder</label>
+                <div class="custome-file">
+                    <input type="file" class="custome-file-input" name="file" id="file" multiple>
+                    <label class="custome-file-label" for="file">Select folder...</label>
+                </div>
+            </div>
+        </fieldset>
+            <div class="form-group">
+                {{ form.submit(class='btn btn-outline-info') }}
+            </div>
+    </form>
+</div>
+
+
+{% endblock content %}
+

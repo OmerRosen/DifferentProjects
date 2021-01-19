@@ -1,15 +1,15 @@
 {% extends 'layout.html' %}
 {% block content %}
 
+<a href={{url_for('twitterClassifier_Train')}}>Click here to train a new model</a>
 <div class="content-section">
-    <a href={{url_for('twitterClassifier_Train')}}>Click here to train a new model</a>
     <form method="post" action="">
         {{ form.hidden_tag() }}
         <fieldset class="form-group">
             <legend class="border-bottom mb-4">Select which users to compare</legend>
             <div class="form-group">
             {% for field in form %}
-                {% if field.type !="submit" %}
+                {% if field.type not in ("SubmitField","BooleanField") %}
                     <div class="form-group">
                         {{ field.label(class='form-control-label') }}
 
@@ -24,6 +24,20 @@
                             {{ field(class='form-control form-control-lg') }}
                         {% endif %}
                     </div>
+                {% elif field.type == "BooleanField" %}
+                <div class="form-check form-switch">
+                    {% if field.errors %}
+                    {{ field(class='form-control form-control-lg is-invalid') }}
+                    <div class="invalid-feedback">
+                        {% for error in field.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                        {{ field(class='form-check-input') }}
+                    {% endif %}
+                    {{ field.label(class='form-check-label' 'checked') }}
+                </div>
                 {% else %}
                 <div class="form-group">
                     {{ field(class='btn btn-primary btn-outline-info') }}

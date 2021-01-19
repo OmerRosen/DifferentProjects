@@ -2,6 +2,8 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, IntegerField, SelectField
 from wtforms.validators import DataRequired,Length, Email, EqualTo
 import email_validator
+from flask import Flask, flash, request, redirect, url_for
+
 
 class RegistrationForm(FlaskForm):
     username = StringField('Username',
@@ -58,8 +60,16 @@ class InputYourTwitterIdForClassification(FlaskForm):
                            validators=[DataRequired(),Length(min=4,max=50)]
                            )
 
-    shouldCollectComments = BooleanField('Collect user comments as well')
-
     chooseYourModel = SelectField(label='Choose your model', choices=[])
 
+    shouldCollectComments = BooleanField('Collect user comments as well')
+
     submit = SubmitField('Which Twitter princess are you?')
+
+
+
+
+
+class NudityDetectorForm(FlaskForm):
+
+    submit = SubmitField('Search for nudes')
