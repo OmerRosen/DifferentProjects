@@ -84,7 +84,7 @@ def inputYourTwitterIdForClassification():
 
     basefolder = os.path.join(os.getcwd(),"omerprojects/TwitterClassifierFolder")
     #listOfModels = gatherAllAvailableModels(basefolder=basefolder)
-    listOfModels = gatherAllAvailableModels(os.path.join(basefolder,'models'))
+    listOfModels = gatherAllAvailableModels(os.path.join(basefolder,'Models'))
 
     ddlOptions = []
 
@@ -148,7 +148,7 @@ def inputYourTwitterIdForClassification():
     return render_template('InputYourTwitterIdForClassification.html', title='Twitter Classifier', form=form)
 
 
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -159,17 +159,34 @@ def nudityDetector():
     form = NudityDetectorForm()
     try:
         if request.method == 'POST':
+
+            listOfImagePaths = []
             files = request.files.getlist("file")
+            limitCount = 10
             for file in files:
-                fileSavePath = os.path.join(app.config['UPLOAD_FOLDER'],secure_filename(file.filename))
-                file.save(fileSavePath)
+                if limitCount > 0:
+                    if allowed_file(file.filename):
+                        originalFileNAme = file.filename
+                        safeFileName = secure_filename(file.filename)
+                        absoluteSavePath = os.path.join(app.config['UPLOAD_FOLDER'],safeFileName)
+                        relativeSavePath = os.path.join('static','uploads',safeFileName)
+                        file.save(absoluteSavePath)
+                        distList = {"originalFileNAme":originalFileNAme,
+                                    "safeFileName":safeFileName,
+                                    "absoluteSavePath":absoluteSavePath,
+                                    "relativeSavePath":relativeSavePath,
+                                    }
+                        listOfImagePaths.append(distList)
+                        limitCount -= 1
+                else:
+                    break
 
             flash(
                 'Process Completed. %s files were retrieved'%(len(files))
                 , category='success')
 
-            return render_template('InputYourTwitterIdForClassification.html', title='Nudity detector',
-                                   form=form
+            return render_template('NudityDetector.html', title='Nudity detector',
+                                   form=form, listOfImagePaths=listOfImagePaths, showFiles=True
                                    )
     except Exception as e:
         flash(
@@ -193,7 +210,7 @@ def nudityDetector():
     #         return redirect(url_for('uploaded_file',
     #                                 filename=filename))
 
-    return render_template('NudityDetector.html', title='Nudity Detector', form=form)
+    return render_template('NudityDetector.html', title='Nudity Detector', form=form, showFiles=False)
 
 
 

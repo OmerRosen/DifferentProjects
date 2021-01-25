@@ -203,7 +203,7 @@ def extractTweetsForListOfUsers(personsOfInterestList, baseFolder_models,
   return completeListOfPeopleAndTheirTweets, personsOfInterest_extandedDetails
 
 #test_personsOfInterestList=['Rihanna','BarackObama']
-#test_baseFolder = 'models/testModel'
+#test_baseFolder = 'Models/testModel'
 #test_projectName = 'testProject'
 #test_completeListOfPeopleAndTheirTweets,test_personsOfInterest_extandedDetails = extractTweetsForListOfUsers(projectName=test_projectName,personsOfInterestList=test_personsOfInterestList,baseFolder=test_baseFolder,extractTwitsRegardlessIfExists=True,tweetsPerPerson=1000,minimumNumberOfWordPerTweet=4,shouldCollectComments=False,shouldSaveAsCSV=True)
 #

@@ -91,7 +91,7 @@ class LDA_Perdictions():
                 # Take termDocumentMatric, convert to corpus and index words
                 self.corpus, self.id2word, self.twitsAndTheirUniqueWordList = dynamicTopicModel_ToCorpus(self.termDocumentMatric)
 
-                # If needed, train various LDA models
+                # If needed, train various LDA Models
                 self.winningLDAModel, self.ldaResultOutput_df, self.numberOfTopics,self.Coherence,self.Perplexity = takeTokenList_ReturnModel(tokenList=self.twitsAndTheirUniqueWordList,
                                                             dictionaryForLDA=self.id2word,
                                                             corpus=self.corpus,

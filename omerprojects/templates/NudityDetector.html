@@ -3,22 +3,42 @@
 
 <!--<a href={{url_for('twitterClassifier_Train')}}>Click here to train a new model</a>-->
 <div class="content-section">
-    <form method="post" action="" enctype="multipart/form-data">
-        {{ form.hidden_tag() }}
-        <fieldset class="form-group">
-            <legend class="border-bottom mb-4">Select which users to compare</legend>
-            <div class="form-group">
-                <label>Select folder</label>
-                <div class="custome-file">
-                    <input type="file" class="custome-file-input" name="file" id="file" multiple>
-                    <label class="custome-file-label" for="file">Select folder...</label>
+    <div class="container">
+        <form method="post" action="" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            <fieldset class="form-group">
+                <legend class="border-bottom mb-4">Select which users to compare</legend>
+                <div class="form-group">
+                    <label>Select folder</label>
+                    <div class="custome-file">
+                        <input type="file" class="custome-file-input" name="file" id="file" multiple>
+                        <label class="custome-file-label" for="file">Select folder...</label>
+                    </div>
                 </div>
-            </div>
-        </fieldset>
-            <div class="form-group">
-                {{ form.submit(class='btn btn-outline-info') }}
-            </div>
-    </form>
+            </fieldset>
+                <div class="form-group">
+                    {{ form.submit(class='btn btn-outline-info') }}
+                </div>
+        </form>
+    </div>
+    {% if showFiles is true %}
+    <div class="container">
+        <div class="content-section">
+            <div class="jumbotron" style="text-align: center !important;">
+                <div class="row">
+
+            {% for image in listOfImagePaths %}
+                    <div class="col-xs-4">
+                        <h4>{{ image.originalFileNAme }}</h4>
+                        <img src=" {{ image.relativeSavePath }} " class="img-responsive">
+                    </div>
+
+<!--        <img src=" {{ url_for('static', filename='2020-12-17_13.39.36.jpg') }} " alt="" />-->
+<!--        <img src="/static/uploads/2020-12-19_14.07.33.jpg" alt="" />-->
+            {% endfor %}
+    </div>
+    {% endif %}
+
 </div>
 
 

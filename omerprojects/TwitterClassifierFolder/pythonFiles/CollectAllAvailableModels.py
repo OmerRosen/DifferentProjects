@@ -27,6 +27,6 @@ def gatherAllAvailableModels(baseFolder):
 
 if __name__ == "__main__":
     currentFolder = Path(os.getcwd())
-    modelPath = os.path.join(currentFolder.parent, 'models')
+    modelPath = os.path.join(currentFolder.parent, 'Models')
 
     gatherAllAvailableModels(baseFolder=modelPath)

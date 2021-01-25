@@ -369,7 +369,7 @@ class LDA_Perdictions():
                 corpus_NounAdj, id2word_nounAdj, listOfTwitsAndUniqueWords = createCorpusAndId2Word(
                                                                     termDocumentMatric=self.termDocumentMatric)
 
-                # If needed, train various LDA models
+                # If needed, train various LDA Models
                 ldaResultOutput_df = train_Various_LDA_Models(corpus_NounAdj=corpus_NounAdj,
                                                               id2word_nounAdj=id2word_nounAdj,
                                                               listOfTwitsAndUniqueWords=listOfTwitsAndUniqueWords,

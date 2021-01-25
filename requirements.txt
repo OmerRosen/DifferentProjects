@@ -14,3 +14,17 @@ joblib==1.0.0
 textblob
 gensim
 pyLDAvis
+Keras==2.4.3
+keras_unet
+keras-lookahead
+keras-rectified-adam
+opencv-python
+Keras==2.4.3
+Keras-Preprocessing==1.1.2
+keras-vis==0.4.1
+gast==0.3.3
+tensorboard==2.3.0
+tensorflow-estimator==2.3.0
+#tensorflow-gpu==2.3.0
+tensorflow_addons
+progressbar2
