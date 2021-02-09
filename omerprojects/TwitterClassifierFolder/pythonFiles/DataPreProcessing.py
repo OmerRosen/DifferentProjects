@@ -7,7 +7,7 @@ import pandas as pd
 import os
 from time import time
 import emoji
-from profanity_check import predict_prob as profanity_prob
+#from profanity_check import predict_prob as profanity_prob
 
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
