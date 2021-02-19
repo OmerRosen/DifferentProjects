@@ -81,29 +81,11 @@ def listAllImageFilesAndTheirClasses(absoluteClassPath,classDict,saveToCSV=True)
     return  mainClassInstructionsDF
 
 
-def splitDataSet_train_val_test(dataFrame,val_percent=20,test_percent=10):
-
-    #determin train, val, test ration:
-    numOfRecords = dataFrame.shape[0]
-    num_test = int((numOfRecords*test_percent)/100)
-    num_val = int((numOfRecords*val_percent)/100)
-    num_train = numOfRecords-num_val-num_test
-
-    print("Total records: %s. Train: %s, Val: %s, Test: %s"%(numOfRecords,num_train,num_val,num_test))
-
-    #Shuffle dataset:
-    dataFrame = dataFrame.sample(frac=1)
-
-    dataset_train = dataFrame[0:num_train]
-    dataset_val = dataFrame[num_train:num_train+num_val]
-    dataset_test = dataFrame[num_train+num_val:]
-
-    return  dataset_train,dataset_val,dataset_test
-
 
 if __name__ == '__main__':
 
     classDict = {0: 'Penis', 1: 'Vagina', 2: 'Butt', 3: 'BreastWoman', 4: 'BreastMan', 5: 'BathingSuite', 6: 'Banana', 7: 'Peach'}
+    target_img_shape=(256, 256, 3)
 
     classImgFolder = os.path.join(app.config['BASE_FOLDER'],"NudityDetector/Classes")
     path_ImagePathsAndClasses = os.path.join(classImgFolder, 'ImagePathsAndClasses.csv')
@@ -133,53 +115,9 @@ if __name__ == '__main__':
         mainClassInstructionsDF = pd.read_csv(path_ImagePathsAndClasses)
         print("Loaded ImagePathsAndClasses from %s" % (path_ImagePathsAndClasses))
 
-    dataset_train, dataset_val, dataset_test = splitDataSet_train_val_test(dataFrame=mainClassInstructionsDF,val_percent=20,test_percent=10)
+    NSFW_VGG16_LastLayer = OmerSuperModel(name='NSFW_VGG16_LastLayer_DataGenerator', basePath=baseModelFolder,
+                                          classDictionary=classDict)
 
-    target_img_shape = (256, 256, 3)
-    target_size = target_img_shape[0:2]
-    batch_size = 64
-
-    print("Build data generator")
-    #https://vijayabhaskar96.medium.com/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
-
-    datagen = ImageDataGenerator(rescale=1. / 255.)
-    test_datagen = ImageDataGenerator(rescale=1. / 255.)
-    train_generator = datagen.flow_from_dataframe(
-        dataframe=dataset_train,
-        directory=None,
-        x_col="ImgPath_Absolute",
-        class_mode="raw",
-        y_col=list(classDict.values()),
-        batch_size=batch_size,
-        seed=42,
-        shuffle=True,
-        target_size=target_size)
-    valid_generator = test_datagen.flow_from_dataframe(
-        dataframe=dataset_val,
-        directory=None,  # app.config['BASE_FOLDER'],
-        x_col="ImgPath_Absolute",
-        class_mode="raw",
-        y_col=list(classDict.values()),
-        batch_size=batch_size,
-        seed=42,
-        shuffle=True,
-        target_size=target_size)
-    test_generator = test_datagen.flow_from_dataframe(
-        dataframe=dataset_test,
-        directory=None,  # app.config['BASE_FOLDER'],
-        x_col="ImgPath_Absolute",
-        class_mode="raw",
-        y_col=list(classDict.values()),
-        batch_size=1,
-        seed=42,
-        shuffle=False,
-        # class_mode="categorical",
-        # classes=list(classDict.values()),
-        target_size=target_size)
-
-
-
-    NSFW_VGG16_LastLayer = OmerSuperModel(name='NSFW_VGG16_LastLayer', basePath=baseModelFolder, classDictionary=classDict)
 
     VGG16Model = K.applications.vgg16.VGG16(include_top=False, weights='imagenet', input_shape=target_img_shape)
     layers_list = []
@@ -206,43 +144,12 @@ if __name__ == '__main__':
 
     NSFW_VGG16_LastLayer.summary()
 
-    def generator_wrapper(generator):
-        for batch_x,batch_y in generator:
-            yield (batch_x,[batch_y[:,i] for i in range(5)])
+    NSFW_VGG16_LastLayer.train_or_load(trainRegardless=True, epochs=2)
 
+    print(os.path.join(NSFW_VGG16_LastLayer.basePath, "Matrics_Output_Compare.json"))
+    NSFW_VGG16_LastLayer.compare_all_models()
+    NSFW_VGG16_LastLayer.compare_json.sort_values(by=["accuracy"], ascending=False).head(10)
 
-    STEP_SIZE_TRAIN = train_generator.n // train_generator.batch_size
-    STEP_SIZE_VALID = valid_generator.n // valid_generator.batch_size
-    STEP_SIZE_TEST = test_generator.n // test_generator.batch_size
-    #Old fir generator - Depricated
-    # NSFW_VGG16_LastLayer.fit_generator(generator=generator_wrapper(train_generator),
-    #                     steps_per_epoch=STEP_SIZE_TRAIN,
-    # validation_data = generator_wrapper(valid_generator),
-    # validation_steps = STEP_SIZE_VALID,
-    # epochs = 1, verbose = 2
-    # )
-
-    NSFW_VGG16_LastLayer.fit(
-        train_generator,
-        steps_per_epoch=STEP_SIZE_TRAIN,
-        epochs=5,
-        validation_data=valid_generator,
-        validation_steps=STEP_SIZE_VALID)
-
-    test_generator.reset()
-    pred = NSFW_VGG16_LastLayer.predict_generator(test_generator,
-                                   steps=STEP_SIZE_TEST,
-                                   verbose=1)
-
-    pred_bool = (pred > 0.5)
-
-    predictions = pred_bool.astype(int)
-    columns = list(classDict.values())
-    # columns should be the same order of y_col
-    results = pd.DataFrame(predictions, columns=columns)
-    results["Filenames"] = test_generator.filenames
-    ordered_cols = ["Filenames"] + columns
-    results = results[ordered_cols]  # To get the same column order
-    results.to_csv(os.path.join(baseModelFolder,"results.csv"), index=False)
-
-    print(results)
+    NSFW_VGG16_LastLayer.test_real_images(
+        realImagePath='/content/drive/My Drive/Harvard HW/Final Project/ImagesForTest', threshold=0.5, batchSize=10,
+        modelImgShape=NSFW_VGG16_LastLayer.image_shape[0], showOnlyMatches=False, showSFW=False)

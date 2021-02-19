@@ -379,3 +379,24 @@ def resourcepath(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
+
+
+def splitDataSet_train_val_test(dataFrame,val_percent=20,test_percent=10):
+
+    #determin train, val, test ration:
+    numOfRecords = dataFrame.shape[0]
+    num_test = int((numOfRecords*test_percent)/100)
+    num_val = int((numOfRecords*val_percent)/100)
+    num_train = numOfRecords-num_val-num_test
+
+    print("Total records: %s. Train: %s, Val: %s, Test: %s"%(numOfRecords,num_train,num_val,num_test))
+
+    #Shuffle dataset:
+    dataFrame = dataFrame.sample(frac=1)
+
+    dataset_train = dataFrame[0:num_train]
+    dataset_val = dataFrame[num_train:num_train+num_val]
+    dataset_test = dataFrame[num_train+num_val:]
+
+    return  dataset_train,dataset_val,dataset_test

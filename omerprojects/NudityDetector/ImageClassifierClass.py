@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import save
 from numpy import asarray
-from Snippets_Various import load_img_omer, resize_image, display_images_in_plot
+from Snippets_Various import load_img_omer, resize_image, display_images_in_plot,splitDataSet_train_val_test
 
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, multilabel_confusion_matrix
 # import tensorflow as tf
@@ -17,6 +17,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.models import load_model, Model, Sequential
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.losses import CategoricalCrossentropy, Hinge
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 
 from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.metrics import CategoricalAccuracy, Accuracy, BinaryCrossentropy, CosineSimilarity
@@ -24,13 +25,6 @@ from tensorflow.keras.metrics import CategoricalAccuracy, Accuracy, BinaryCrosse
 import tensorflow_addons as tfa
 from tensorflow_addons.optimizers import Lookahead, RectifiedAdam, AdamW
 
-# from keras_unet.losses import jaccard_distance
-# from keras_lookahead import Lookahead
-# from keras_preprocessing.image import ImageDataGenerator
-
-
-# from keras_radam import RAdam
-# from keras_radam.training import RAdamOptimizer
 
 
 import time
@@ -268,26 +262,115 @@ class OmerSuperModel(Sequential):
       print("Model was complied as segmented model. optimizer: %s, learning_rate: %s, momentum: %s"%(self.optimizerType,self.learning_rate,self.momentum))
     """
 
-    def trainModel(self, batch_size=34, epochs=30, saveToFile=True, alsoTestModel=True, plotResults=True,
-                   saveTempModel=True):
+    def buildDataGeneretor(self,mainClassInstructionsDF,target_img_shape=(256, 256, 3),batch_size = 64,epochs=10):
+
+        # Receivce a df file containing all mainClassInstructionsDF
+            #Location col name: ImgPath_Absolute
+
         start_time = time.time()
-        callBacks = None
-        if self.fit_callback_list != []:
-            callBacks = self.fit_callback_list
-        training_results = super().fit(
-            self.X_train,
-            self.y_train,
-            validation_data=(self.X_val, self.y_val),
+
+        dataset_train, dataset_val, dataset_test = splitDataSet_train_val_test(dataFrame=mainClassInstructionsDF,
+                                                                               val_percent=20, test_percent=10)
+        target_size = target_img_shape[0:2]
+
+
+        print("Build data generator")
+        # https://vijayabhaskar96.medium.com/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
+
+        datagen = ImageDataGenerator(rescale=1. / 255.)
+        test_datagen = ImageDataGenerator(rescale=1. / 255.)
+        train_generator = datagen.flow_from_dataframe(
+            dataframe=dataset_train,
+            directory=None,
+            x_col="ImgPath_Absolute",
+            class_mode="raw",
+            y_col=list(classDict.values()),
             batch_size=batch_size,
-            # Integer or None. Number of samples per gradient update. If unspecified, batch_size will default to 32
+            seed=42,
+            shuffle=True,
+            target_size=target_size)
+        valid_generator = test_datagen.flow_from_dataframe(
+            dataframe=dataset_val,
+            directory=None,  # app.config['BASE_FOLDER'],
+            x_col="ImgPath_Absolute",
+            class_mode="raw",
+            y_col=list(classDict.values()),
+            batch_size=batch_size,
+            seed=42,
+            shuffle=True,
+            target_size=target_size)
+        test_generator = test_datagen.flow_from_dataframe(
+            dataframe=dataset_test,
+            directory=None,  # app.config['BASE_FOLDER'],
+            x_col="ImgPath_Absolute",
+            class_mode="raw",
+            y_col=list(classDict.values()),
+            batch_size=1,
+            seed=42,
+            shuffle=False,
+            # class_mode="categorical",
+            # classes=list(classDict.values()),
+            target_size=target_size)
+
+        self.test_generator = test_generator
+        self.valid_generator = valid_generator
+        self.train_generator = train_generator
+
+        def generator_wrapper(generator):
+            for batch_x, batch_y in generator:
+                yield (batch_x, [batch_y[:, i] for i in range(5)])
+
+        self.STEP_SIZE_TRAIN =self.test_generator.n //  self.test_generator.batch_size
+        self.STEP_SIZE_VALID =self.valid_generator.n // self.valid_generator.batch_size
+        self.STEP_SIZE_TEST = self.train_generator.n // self.train_generator.batch_size
+
+        callBacks = None
+
+        training_results = super().fit(
+            train_generator,
+            steps_per_epoch=self.STEP_SIZE_TRAIN,
             epochs=epochs,
-            # Integer. Number of epochs to train the model. An epoch is an iteration over the entire x and y data provided.
-            callbacks=callBacks
-            # ,verbose=1
+            validation_data=valid_generator,
+            validation_steps=self.STEP_SIZE_VALID,
+            callBacks=self.fit_callback_list
+
         )
+
         self.execution_time = (time.time() - start_time) / 60.0
-        print("Training execution time (mins)", self.execution_time)
+        print("Data Generator training execution time (mins)", self.execution_time)
+
         self.training_results = training_results
+
+
+    def trainModel(self, batch_size=34, epochs=30, saveToFile=True, alsoTestModel=True, plotResults=True,
+                   saveTempModel=True, dataGeneratorInstructionsDF=None,target_img_shape=(256, 256, 3)):
+
+        self.image_shape=target_img_shape
+
+        if dataGeneratorInstructionsDF is None:
+            start_time = time.time()
+            callBacks = None
+            if self.fit_callback_list != []:
+                callBacks = self.fit_callback_list
+            training_results = super().fit(
+                self.X_train,
+                self.y_train,
+                validation_data=(self.X_val, self.y_val),
+                batch_size=batch_size,
+                # Integer or None. Number of samples per gradient update. If unspecified, batch_size will default to 32
+                epochs=epochs,
+                # Integer. Number of epochs to train the model. An epoch is an iteration over the entire x and y data provided.
+                callbacks=callBacks
+                # ,verbose=1
+            )
+            self.execution_time = (time.time() - start_time) / 60.0
+            print("Training execution time (mins)", self.execution_time)
+            self.training_results = training_results
+        else:
+            # Receivce a df file containing all mainClassInstructionsDF
+                # Location col name: ImgPath_Absolute
+            self.buildDataGeneretor(mainClassInstructionsDF=dataGeneratorInstructionsDF, target_img_shape=self.image_shape, batch_size=batch_size, epochs=epochs)
+
         self.batch_size = batch_size
         self.epochs = epochs
 
@@ -603,11 +686,11 @@ class OmerSuperModel(Sequential):
         self.classification_report = classification_report_panda
 
     def train_or_load(self, trainRegardless=False, batch_size=128, epochs=50, saveToFile=True, alsoTestModel=True,
-                      plotResults=True):
+                      plotResults=True,dataGeneratorInstructionsDF=None):
         modelPath = os.path.join(self.save_path, self.modelName + ".hdf5")
         if not os.path.exists(modelPath) or trainRegardless:
             self.trainModel(batch_size=batch_size, epochs=epochs, saveToFile=saveToFile, alsoTestModel=alsoTestModel,
-                            plotResults=plotResults)
+                            plotResults=plotResults,dataGeneratorInstructionsDF=dataGeneratorInstructionsDF)
             self.save_model()
         else:
             self.load_model(self.X_train, self.y_train, self.X_val, self.y_val, self.X_test, self.y_test,
