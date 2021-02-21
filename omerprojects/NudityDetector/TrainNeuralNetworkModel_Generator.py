@@ -44,7 +44,7 @@ def listAllImageFilesAndTheirClasses(absoluteClassPath,classDict,saveToCSV=True)
     allFiles = getListOfFiles(classImgFolder)
 
     # Create a dataframe for containing file information and classes
-    dataFrameColumns = ['ImgId', 'ImgPath_Relative','labels','ImgPath_Absolute']
+    dataFrameColumns = ['ImgId', 'ImgPath_Relative','labels','ImgPath_Absolute','ImgPath_GoogleDrive']
     for key, val in classDict.items():
         dataFrameColumns.append(val)
 
@@ -54,8 +54,11 @@ def listAllImageFilesAndTheirClasses(absoluteClassPath,classDict,saveToCSV=True)
     for i, filePath in enumerate(allFiles):
         if filePath.lower().endswith(('.png', '.jpg', '.jpeg','.jfif')):
             relativePath = filePath.replace(app.config['BASE_FOLDER'], '')
-            imageInfo = {'ImgPath_Relative': relativePath,
-                         'ImgPath_Absolute': filePath}
+            googleDrivePath = filePath.replace(app.config['BASE_FOLDER'], '/content/drive/MyDrive/Data Science Projects/OmerPortal/omerprojects')
+            imageInfo = {'ImgPath_Relative': relativePath.replace("\\","/"),
+                         'ImgPath_Absolute': filePath,
+                         'ImgPath_GoogleDrive': googleDrivePath.replace("\\","/")
+                         }
             listOfFolders = filePath.split('\\')
             labels=""
             for folder in listOfFolders:
@@ -86,6 +89,7 @@ if __name__ == '__main__':
 
     classDict = {0: 'Penis', 1: 'Vagina', 2: 'Butt', 3: 'BreastWoman', 4: 'BreastMan', 5: 'BathingSuite', 6: 'Banana', 7: 'Peach'}
     target_img_shape=(256, 256, 3)
+    batch_size = 64
 
     classImgFolder = os.path.join(app.config['BASE_FOLDER'],"NudityDetector/Classes")
     path_ImagePathsAndClasses = os.path.join(classImgFolder, 'ImagePathsAndClasses.csv')
@@ -140,11 +144,19 @@ if __name__ == '__main__':
     NSFW_VGG16_LastLayer.add_dense_layer(isLastLayer=True, )
     NSFW_VGG16_LastLayer.compile_model(optimizer='Adam', learning_rate=0.006, momentum=0.0)
     NSFW_VGG16_LastLayer.add_EarlyStopping(patience=7)
-    NSFW_VGG16_LastLayer.add_Checkpoint()
+    #NSFW_VGG16_LastLayer.add_Checkpoint()
 
     NSFW_VGG16_LastLayer.summary()
 
-    NSFW_VGG16_LastLayer.train_or_load(trainRegardless=True, epochs=2)
+
+    test_mainClassInstructionsDF=mainClassInstructionsDF[:500]
+    NSFW_VGG16_LastLayer.buildDataGeneretor(mainClassInstructionsDF=test_mainClassInstructionsDF,
+                                            target_img_shape=target_img_shape,
+                                            batch_size=batch_size)
+
+    NSFW_VGG16_LastLayer.train_or_load(trainRegardless=True,
+                                       epochs=2,
+                                       batch_size=batch_size)
 
     print(os.path.join(NSFW_VGG16_LastLayer.basePath, "Matrics_Output_Compare.json"))
     NSFW_VGG16_LastLayer.compare_all_models()

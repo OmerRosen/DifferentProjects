@@ -1,8 +1,7 @@
 import numpy as np
 from numpy import save
 from numpy import asarray
-from Snippets_Various import load_img_omer, resize_image, display_images_in_plot,splitDataSet_train_val_test
-
+from Snippets_Various import load_img_omer, resize_image, display_images_in_plot, splitDataSet_train_val_test,JsonEncoder
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, multilabel_confusion_matrix
 # import tensorflow as tf
 
@@ -25,7 +24,7 @@ from tensorflow.keras.metrics import CategoricalAccuracy, Accuracy, BinaryCrosse
 import tensorflow_addons as tfa
 from tensorflow_addons.optimizers import Lookahead, RectifiedAdam, AdamW
 
-
+from sklearn import model_selection
 
 import time
 import datetime
@@ -55,6 +54,7 @@ class OmerSuperModel(Sequential):
         super().__init__(name=name)
         self.basePath = basePath
         self.modelName = name
+        self.hdf5_path = None
         self.classDictionary = classDictionary
         self.numOfClasses = len(classDictionary)
         self.X_train = X_train
@@ -84,6 +84,16 @@ class OmerSuperModel(Sequential):
         self.classification_report = []
         self.evaluation_results = None
         self.isSegmentedModel = False
+
+        # For Data generator:
+        self.DataGenerator = 0
+
+        self.test_generator = None
+        self.valid_generator = None
+        self.train_generator = None
+        self.STEP_SIZE_TRAIN = None
+        self.STEP_SIZE_VALID = None
+        self.STEP_SIZE_TEST = None
 
     def normalize_data(self, alsoFlatten=False):
         self.X_train = self.X_train.astype("float") / 255.0
@@ -176,6 +186,7 @@ class OmerSuperModel(Sequential):
         if not os.path.exists(checkpointFolderPath):
             os.makedirs(checkpointFolderPath)
         checkpointFilePath = os.path.join(checkpointFolderPath, '%s - Epoc {epoch:02d} - Val_%s {val_%s:.2f}.hdf5' % (
+            # checkpointFilePath = os.path.join(checkpointFolderPath, '%s - Epoc {epoch:02d} - Val_%s {Val_%s:.2f}.hdf5' % (
             self.modelName, self.measurment_metric_name, self.measurment_metric_name))
         # checkpointFilePath = os.path.join(checkpointFolderPath,self.save_path,self.modelName+".hdf5")
         checkpoint = ModelCheckpoint(filepath=checkpointFilePath, monitor='val_%s' % self.measurment_metric_name,
@@ -226,12 +237,12 @@ class OmerSuperModel(Sequential):
         elif measurment_metric_name.lower() == 'categorical_accuracy':
             measurment_metric = [CategoricalAccuracy]
             self.measurment_metric_name = 'categorical_accuracy'
-        elif measurment_metric_name.lower() == 'iou':
-            measurment_metric = [iou]
-            self.measurment_metric_name = 'iou'
-        elif measurment_metric_name.lower() == 'iou_thresholded':
-            measurment_metric = [iou_thresholded]
-            self.measurment_metric_name = 'iou_thresholded'
+        # elif measurment_metric_name.lower() == 'iou':
+        #     measurment_metric = [iou]
+        #     self.measurment_metric_name = 'iou'
+        # elif measurment_metric_name.lower() == 'iou_thresholded':
+        #     measurment_metric = [iou_thresholded]
+        #     self.measurment_metric_name = 'iou_thresholded'
 
         super().compile(optimizer=optimizerClass, loss=loss, metrics=self.measurment_metric_name)
         # super().compile(loss=loss,optimizer=optimizer,metrics=['accuracy'])
@@ -262,10 +273,16 @@ class OmerSuperModel(Sequential):
       print("Model was complied as segmented model. optimizer: %s, learning_rate: %s, momentum: %s"%(self.optimizerType,self.learning_rate,self.momentum))
     """
 
-    def buildDataGeneretor(self,mainClassInstructionsDF,target_img_shape=(256, 256, 3),batch_size = 64,epochs=10):
+    def buildDataGeneretor(self, mainClassInstructionsDF, target_img_shape=(256, 256, 3), batch_size=64,
+                           pathColName='ImgPath_Absolute'):
 
         # Receivce a df file containing all mainClassInstructionsDF
-            #Location col name: ImgPath_Absolute
+        # Location col name: ImgPath_Absolute
+
+        testPath = mainClassInstructionsDF[pathColName].values[0]
+        if not os.path.exists(testPath):
+            print("Could not locate sample image from mainClassInstructionsDF")
+            print("Img path: %s" % (testPath))
 
         start_time = time.time()
 
@@ -273,6 +290,8 @@ class OmerSuperModel(Sequential):
                                                                                val_percent=20, test_percent=10)
         target_size = target_img_shape[0:2]
 
+        # self.y_test = dataset_test.filter(items=self.classDictionary.values()).values
+        self.X_test = dataset_test.filter(items=[pathColName]).values
 
         print("Build data generator")
         # https://vijayabhaskar96.medium.com/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
@@ -282,9 +301,9 @@ class OmerSuperModel(Sequential):
         train_generator = datagen.flow_from_dataframe(
             dataframe=dataset_train,
             directory=None,
-            x_col="ImgPath_Absolute",
+            x_col=pathColName,
             class_mode="raw",
-            y_col=list(classDict.values()),
+            y_col=list(self.classDictionary.values()),
             batch_size=batch_size,
             seed=42,
             shuffle=True,
@@ -292,9 +311,9 @@ class OmerSuperModel(Sequential):
         valid_generator = test_datagen.flow_from_dataframe(
             dataframe=dataset_val,
             directory=None,  # app.config['BASE_FOLDER'],
-            x_col="ImgPath_Absolute",
+            x_col=pathColName,
             class_mode="raw",
-            y_col=list(classDict.values()),
+            y_col=list(self.classDictionary.values()),
             batch_size=batch_size,
             seed=42,
             shuffle=True,
@@ -302,56 +321,57 @@ class OmerSuperModel(Sequential):
         test_generator = test_datagen.flow_from_dataframe(
             dataframe=dataset_test,
             directory=None,  # app.config['BASE_FOLDER'],
-            x_col="ImgPath_Absolute",
+            x_col=pathColName,
             class_mode="raw",
-            y_col=list(classDict.values()),
+            y_col=list(self.classDictionary.values()),
             batch_size=1,
             seed=42,
             shuffle=False,
-            # class_mode="categorical",
-            # classes=list(classDict.values()),
             target_size=target_size)
 
         self.test_generator = test_generator
         self.valid_generator = valid_generator
         self.train_generator = train_generator
 
+        self.y_test = self.test_generator.labels
+
         def generator_wrapper(generator):
             for batch_x, batch_y in generator:
                 yield (batch_x, [batch_y[:, i] for i in range(5)])
 
-        self.STEP_SIZE_TRAIN =self.test_generator.n //  self.test_generator.batch_size
-        self.STEP_SIZE_VALID =self.valid_generator.n // self.valid_generator.batch_size
-        self.STEP_SIZE_TEST = self.train_generator.n // self.train_generator.batch_size
+        self.STEP_SIZE_TRAIN = self.test_generator.n // self.test_generator.batch_size
+        self.STEP_SIZE_VALID = self.valid_generator.n // self.valid_generator.batch_size
+        self.STEP_SIZE_TEST = self.train_generator.n  # // self.train_generator.batch_size
 
-        callBacks = None
+        self.DataGenerator = 1
 
-        training_results = super().fit(
-            train_generator,
-            steps_per_epoch=self.STEP_SIZE_TRAIN,
-            epochs=epochs,
-            validation_data=valid_generator,
-            validation_steps=self.STEP_SIZE_VALID,
-            callBacks=self.fit_callback_list
-
-        )
-
-        self.execution_time = (time.time() - start_time) / 60.0
-        print("Data Generator training execution time (mins)", self.execution_time)
-
-        self.training_results = training_results
-
+        print("test_generator: %s records. Shape: %s" % (self.test_generator.n, str(self.y_test.shape)))
+        print("valid_generator: %s records" % (self.valid_generator.n))
+        print("train_generator: %s records" % (self.train_generator.n))
 
     def trainModel(self, batch_size=34, epochs=30, saveToFile=True, alsoTestModel=True, plotResults=True,
-                   saveTempModel=True, dataGeneratorInstructionsDF=None,target_img_shape=(256, 256, 3)):
+                   saveTempModel=True, target_img_shape=(256, 256, 3)):
 
-        self.image_shape=target_img_shape
+        self.image_shape = target_img_shape
 
-        if dataGeneratorInstructionsDF is None:
-            start_time = time.time()
-            callBacks = None
-            if self.fit_callback_list != []:
-                callBacks = self.fit_callback_list
+        start_time = time.time()
+        callBacks = None
+        if self.fit_callback_list != []:
+            callBacks = self.fit_callback_list
+
+        if self.DataGenerator == 1:
+
+            training_results = super().fit(
+                self.train_generator,
+                steps_per_epoch=self.STEP_SIZE_TRAIN,
+                epochs=epochs,
+                validation_data=self.valid_generator,
+                validation_steps=self.STEP_SIZE_VALID,
+                callbacks=callBacks
+
+            )
+
+        else:  # Regular dataset training
             training_results = super().fit(
                 self.X_train,
                 self.y_train,
@@ -365,11 +385,8 @@ class OmerSuperModel(Sequential):
             )
             self.execution_time = (time.time() - start_time) / 60.0
             print("Training execution time (mins)", self.execution_time)
-            self.training_results = training_results
-        else:
-            # Receivce a df file containing all mainClassInstructionsDF
-                # Location col name: ImgPath_Absolute
-            self.buildDataGeneretor(mainClassInstructionsDF=dataGeneratorInstructionsDF, target_img_shape=self.image_shape, batch_size=batch_size, epochs=epochs)
+
+        self.training_results = training_results
 
         self.batch_size = batch_size
         self.epochs = epochs
@@ -443,17 +460,30 @@ class OmerSuperModel(Sequential):
         return training_results
 
     def testModel(self, showSampleTestSize=None, printResults=True):
-        test_predictions = super().predict(self.X_test)
+        if self.DataGenerator == 1:
+            # print("Test model: STEP_SIZE_TEST: %s" % (self.STEP_SIZE_TEST))
+            test_predictions = super().predict(self.test_generator,
+                                               steps=self.STEP_SIZE_TEST,  # self.STEP_SIZE_TEST,
+                                               max_queue_size=100000,
+                                               verbose=1)
+            # print("test_predictions: %s" % (test_predictions.shape))
+            # print("self.y_test: %s" % (self.y_test.shape))
+        else:
+            test_predictions = super().predict(self.X_test)
         test_predictions_flattened = np.argmax(test_predictions, axis=1)
         y_test_flattened = np.argmax(self.y_test, axis=1)
         listOfImagesAndValues = []
         for i, prediction in enumerate(test_predictions):
-            image = self.X_test[i]
+            if self.DataGenerator == 1:  # If image generator - Load image from instruction path
+                image = load_img_omer(self.X_test[i][0])
+            else:
+                image = self.X_test[i][0]  # If direct image - Image from X_test
             maxScore = np.max(test_predictions[i])
             maxIndex = np.argmax(test_predictions[i])
             indexValue = self.classDictionary[maxIndex]
             rowDesc = {'Image': image, 'maxScore': maxScore, 'maxIndex': maxIndex, 'label': indexValue}
             listOfImagesAndValues.append(rowDesc)
+        # print("y_test_flattened: %s, test_predictions_flattened: %s" % (len(y_test_flattened), len(test_predictions_flattened)))
         cm = confusion_matrix(y_test_flattened, test_predictions_flattened)
         acc = accuracy_score(y_test_flattened, test_predictions_flattened)
         self.accuracyScore = acc
@@ -534,11 +564,14 @@ class OmerSuperModel(Sequential):
             print("No file to upload. Please check path or train your model from start. Path: %s" % (loadPath))
 
     def save_model(self, saveMode=1):
+
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
         # Save the enitire model (structure + weights)
         if saveMode == 1:
-            super().save(os.path.join(self.save_path, self.modelName + ".hdf5"))
+            hdf5_path = os.path.join(self.save_path, "%s - Accuracy %s .hdf5"%(self.modelName,self.accuracyScore))
+            print("Saving model to %s" % (self.save_path))
+            super().save(hdf5_path)
         elif saveMode == 2:
             # Save only the weights
             super().save_weights(os.path.join(self.save_path, self.modelName + ".h5"))
@@ -594,7 +627,7 @@ class OmerSuperModel(Sequential):
         if saveMode == 1:
             self.save_model_metrics(modelmetrics)
 
-    def get_model_metrics():
+    def get_model_metrics(self):
         with open("model_metrics_section4a.json") as json_file:
             model_metrics = json.load(json_file)
 
@@ -627,7 +660,7 @@ class OmerSuperModel(Sequential):
 
         if listOfMatricesToCompare == []:
             compare_json = allMatrics.T
-            print(compare_json)
+            # print(compare_json)
         else:
             compare_json = allMatrics.filter(items=listOfMatricesToCompare).T
 
@@ -635,6 +668,7 @@ class OmerSuperModel(Sequential):
             'Matrics were compared. Please use the following command: "%s.compare_json.sort_values(by=["accuracy"],ascending=False).head(10)"' % self.modelName)
         # compare_json.sort_values(by=['accuracy'],ascending=False).head(10)
         self.compare_json = compare_json
+        return self.compare_json
 
     def showTrainingHistory(self, saveToFile=True):
         now = datetime.datetime.now()
@@ -658,7 +692,13 @@ class OmerSuperModel(Sequential):
         plt.imshow(img)
 
     def evaluate_results(self):
-        evaluation_results = super().evaluate(self.X_test, self.y_test)
+
+        if self.DataGenerator == 1:
+            evaluation_results = super().evaluate(self.test_generator)
+
+        else:
+            evaluation_results = super().evaluate(self.X_test, self.y_test)
+
         self.evaluation_results = evaluation_results
 
     def evaluate_save_model(self, saveToFile=True):
@@ -666,7 +706,11 @@ class OmerSuperModel(Sequential):
         self.showTrainingHistory()
 
         # Evaluate on test data
-        evaluation_results = super().evaluate(self.X_test, self.y_test)
+        if self.DataGenerator == 1:
+            evaluation_results = super().evaluate(self.test_generator)
+
+        else:
+            evaluation_results = super().evaluate(self.X_test, self.y_test)
         # print(evaluation_results)
 
         # Evaluate on test data
@@ -686,11 +730,11 @@ class OmerSuperModel(Sequential):
         self.classification_report = classification_report_panda
 
     def train_or_load(self, trainRegardless=False, batch_size=128, epochs=50, saveToFile=True, alsoTestModel=True,
-                      plotResults=True,dataGeneratorInstructionsDF=None):
+                      plotResults=True):
         modelPath = os.path.join(self.save_path, self.modelName + ".hdf5")
         if not os.path.exists(modelPath) or trainRegardless:
             self.trainModel(batch_size=batch_size, epochs=epochs, saveToFile=saveToFile, alsoTestModel=alsoTestModel,
-                            plotResults=plotResults,dataGeneratorInstructionsDF=dataGeneratorInstructionsDF)
+                            plotResults=plotResults)
             self.save_model()
         else:
             self.load_model(self.X_train, self.y_train, self.X_val, self.y_val, self.X_test, self.y_test,
@@ -916,39 +960,41 @@ testClass.test_real_images(realImagePath='/content/drive/My Drive/Facebook tagge
 # testClass.evaluate_save_model()
 
 """ Snippet to quickly load an image and convert if from BGR to either RGB or Grayscale"""
-def load_img_omer(path,isGray=False,showImg=False):
-  img = cv2.imread(path)
-
-  if img is None:
-    print ("Could not load image, please check path %s" %path)
-  else:
-    #Convert from BGR to RGB
-    img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
-    if showImg:
-      fig= plt.figure(figsize=(10,10))
-      plt.title('Loaded image')
-      plt.axis('off')
-      plt.imshow(img)
-  if isGray:
-    # if grayscale:
-    img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
-    if showImg:
-      fig= plt.figure(figsize=(10,10))
-      plt.title('Loaded image')
-      plt.axis('off')
-      plt.imshow(img,comap="gray")
-  return img
 
 
-def load_dataset(x_fileName,y_fileName,classDict,sampleDataset=True):
-# load dataset
+def load_img_omer(path, isGray=False, showImg=False):
+    img = cv2.imread(path)
+
+    if img is None:
+        print("Could not load image, please check path %s" % path)
+    else:
+        # Convert from BGR to RGB
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if showImg:
+            fig = plt.figure(figsize=(10, 10))
+            plt.title('Loaded image')
+            plt.axis('off')
+            plt.imshow(img)
+    if isGray:
+        # if grayscale:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        if showImg:
+            fig = plt.figure(figsize=(10, 10))
+            plt.title('Loaded image')
+            plt.axis('off')
+            plt.imshow(img, comap="gray")
+    return img
+
+
+def load_dataset(x_fileName, y_fileName, classDict, sampleDataset=True):
+    # load dataset
     npx = np.load(x_fileName)
     npy = np.load(y_fileName)
     X, X_test, y, y_test = model_selection.train_test_split(npx, npy, test_size=0.2, random_state=13)
     # garbage collection or run out of RAM
     npx = None
     npy = None
-    gc.collect()
+    # gc.collect()
     X_train, X_val, y_train, y_val = model_selection.train_test_split(X, y, test_size=0.2, random_state=17)
     # one hot encode target values
     y_train_catg = to_categorical(y_train)
@@ -957,48 +1003,50 @@ def load_dataset(x_fileName,y_fileName,classDict,sampleDataset=True):
     print(X_train.shape, X_val.shape, X_test.shape)
     print(y_train.shape, y_val.shape, y_test.shape)
 
-    #DIsplay samples
+    # DIsplay samples
     if sampleDataset:
-      sampleImgs=list()
-      sampleTitles=list()
-      for i in range(15):
-        randInt = random.randint(0,len(X_train))
-        img = X_train[randInt]
-        label=y_train[randInt]
-        title = "Img %s - %s (%s)"%(randInt,classDict[label],label)
-        sampleImgs.append(img)
-        sampleTitles.append(title)
-      display_images_in_plot(sampleImgs,sampleTitles)
+        sampleImgs = list()
+        sampleTitles = list()
+        for i in range(15):
+            randInt = random.randint(0, len(X_train))
+            img = X_train[randInt]
+            label = y_train[randInt]
+            title = "Img %s - %s (%s)" % (randInt, classDict[label], label)
+            sampleImgs.append(img)
+            sampleTitles.append(title)
+        display_images_in_plot(sampleImgs, sampleTitles)
 
     # normalize
     X_train = X_train / 255.0
-    X_val =  X_val / 255.0
+    X_val = X_val / 255.0
     X_test = X_test / 255.0
 
     return X_train, y_train_catg, X_val, y_val_catg, X_test, y_test_catg
 
 
 def loadClassDict(ClassDictPath):
-  with open(ClassDictPath, 'r') as jsonFile:
-    classDict = json.load(jsonFile)
+    with open(ClassDictPath, 'r') as jsonFile:
+        classDict = json.load(jsonFile)
 
-  #Reverse Dict
-  reverseClassDict={}
-  for key,val in classDict.items():
-    reverseClassDict[val]=int(key)
+    # Reverse Dict
+    reverseClassDict = {}
+    for key, val in classDict.items():
+        reverseClassDict[val] = int(key)
 
-  #Convert ClassDict keys to ints:
-  for key,val in reverseClassDict.items():
-    classDict[val] = classDict.pop(str(val))
+    # Convert ClassDict keys to ints:
+    for key, val in reverseClassDict.items():
+        classDict[val] = classDict.pop(str(val))
 
-  #Fill in gaps for dict:
-  for i in range(max(classDict.keys())):
-    if classDict.get(i) is None:
-      classDict[i]=None
+    # Fill in gaps for dict:
+    for i in range(max(classDict.keys())):
+        if classDict.get(i) is None:
+            classDict[i] = None
 
-  print(classDict)
-  print(reverseClassDict)
-  return classDict,reverseClassDict
+    print(classDict)
+    print(reverseClassDict)
+    return classDict, reverseClassDict
+
 
 if __name__ == '__main__':
-    classDict,reverseClassDict = loadClassDict("omerprojects/NudityDetector/Classes/ClassDictionary.json") #   /content/drive/My Drive/Harvard HW/Final Project/Classes/ClassDictionary.json
+    classDict, reverseClassDict = loadClassDict(
+        "omerprojects/NudityDetector/Classes/ClassDictionary.json")  # /content/drive/My Drive/Harvard HW/Final Project/Classes/ClassDictionary.json

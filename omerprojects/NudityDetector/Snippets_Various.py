@@ -1,4 +1,5 @@
 #import gc
+import decimal
 import numpy as np
 import sys
 from numpy import save
@@ -400,3 +401,17 @@ def splitDataSet_train_val_test(dataFrame,val_percent=20,test_percent=10):
     dataset_test = dataFrame[num_train+num_val:]
 
     return  dataset_train,dataset_val,dataset_test
+
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, decimal.Decimal):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(JsonEncoder, self).default(obj)
