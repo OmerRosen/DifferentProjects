@@ -95,7 +95,7 @@ if __name__ == '__main__':
     path_ImagePathsAndClasses = os.path.join(classImgFolder, 'ImagePathsAndClasses.csv')
     baseModelFolder = os.path.join(app.config['BASE_FOLDER'],"NudityDetector/Models")
 
-    loadImgClassInstructions = True
+    loadImgClassInstructions = False
 
     # Reverse Dict
     reverseClassDict = {}

@@ -27,10 +27,13 @@
             <div class="jumbotron" style="text-align: center !important;">
                 <div class="row">
 
-            {% for image in listOfImagePaths %}
+            {% for imageName,Info in imageListClassification.items() %}
                     <div class="col-xs-4">
-                        <h4>{{ image.originalFileNAme }}</h4>
-                        <img src=" {{ image.relativeSavePath }} " class="img-responsive">
+                        <h4>{{ imageName }}</h4>
+                        <img src=" {{ Info.imgPath.relativeSavePath }} " class="img-responsive">
+                        {% for className,classProb in Info.Classifications.items() %}
+                        <h6>{{ className }} - {{ classProb }}</h6>
+                        {% endfor %}
                     </div>
 
 <!--        <img src=" {{ url_for('static', filename='2020-12-17_13.39.36.jpg') }} " alt="" />-->

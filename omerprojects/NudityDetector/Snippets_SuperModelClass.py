@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import save
 from numpy import asarray
-from Snippets_Various import load_img_omer,resize_image,display_images_in_plot
+from omerprojects.NudityDetector.Snippets_Various import load_img_omer,resize_image,display_images_in_plot,splitDataSet_train_val_test
 
 from sklearn.metrics import confusion_matrix,accuracy_score,classification_report,multilabel_confusion_matrix
 #import tensorflow as tf
@@ -14,6 +14,7 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dense, Flatten,
 from tensorflow.keras.optimizers import SGD, Adam, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.models import load_model, Model,Sequential
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.losses import CategoricalCrossentropy,Hinge
 
@@ -72,12 +73,15 @@ class JsonEncoder(json.JSONEncoder):
     else:
         return super(JsonEncoder, self).default(obj)
 
+
+
 class OmerSuperModel(Sequential):
     def __init__(self, X_train=[], y_train=[], X_val=[], y_val=[], X_test=[], y_test=[], classDictionary=[],
                  name="Model", basePath=""):
         super().__init__(name=name)
         self.basePath = basePath
         self.modelName = name
+        self.hdf5_path = None
         self.classDictionary = classDictionary
         self.numOfClasses = len(classDictionary)
         self.X_train = X_train
@@ -108,7 +112,17 @@ class OmerSuperModel(Sequential):
         self.evaluation_results = None
         self.isSegmentedModel = False
 
-    def normalize_data(self,alsoFlatten=False):
+        # For Data generator:
+        self.DataGenerator = 0
+
+        self.test_generator = None
+        self.valid_generator = None
+        self.train_generator = None
+        self.STEP_SIZE_TRAIN = None
+        self.STEP_SIZE_VALID = None
+        self.STEP_SIZE_TEST = None
+
+    def normalize_data(self, alsoFlatten=False):
         self.X_train = self.X_train.astype("float") / 255.0
         self.X_val = self.X_val.astype("float") / 255.0
         self.X_test = self.X_test.astype("float") / 255.0
@@ -179,7 +193,7 @@ class OmerSuperModel(Sequential):
                 super().add(BatchNormalization())
             super().add(Activation(activation))
         print("Convolution layer was added. filters: %s, kernelSize: %s, kernelStride: %s, activation: %s" % (
-        filters, kernelSize[1], conv_strides[0], activation))
+            filters, kernelSize[1], conv_strides[0], activation))
         if addPooling:
             super().add(MaxPooling2D(pool_size=pool_size, strides=pool_strides))
             print("Pooling layer was added. pool_size: %s, pool_strides: %s" % (pool_size[0], pool_strides[0]))
@@ -199,7 +213,8 @@ class OmerSuperModel(Sequential):
         if not os.path.exists(checkpointFolderPath):
             os.makedirs(checkpointFolderPath)
         checkpointFilePath = os.path.join(checkpointFolderPath, '%s - Epoc {epoch:02d} - Val_%s {val_%s:.2f}.hdf5' % (
-        self.modelName, self.measurment_metric_name, self.measurment_metric_name))
+            # checkpointFilePath = os.path.join(checkpointFolderPath, '%s - Epoc {epoch:02d} - Val_%s {Val_%s:.2f}.hdf5' % (
+            self.modelName, self.measurment_metric_name, self.measurment_metric_name))
         # checkpointFilePath = os.path.join(checkpointFolderPath,self.save_path,self.modelName+".hdf5")
         checkpoint = ModelCheckpoint(filepath=checkpointFilePath, monitor='val_%s' % self.measurment_metric_name,
                                      save_best_only=True, mode='max')
@@ -211,7 +226,7 @@ class OmerSuperModel(Sequential):
         print("Dropout layer was added. Rate: %s" % (rate))
 
     def compile_model(self, optimizer='SGD', learning_rate=0.01, momentum=0.00, loss='binary_crossentropy',
-                      warmup_proportion=0.1, total_steps=1000, min_lr=1e-5, measurment_metric_name='accuracy'):
+                      warmup_proportion=0.1, total_steps=10000, min_lr=1e-5, measurment_metric_name='accuracy'):
         # MMMM
         self.learning_rate = learning_rate
         self.momentum = momentum
@@ -231,10 +246,10 @@ class OmerSuperModel(Sequential):
                 optimizerClass = RMSprop(learning_rate=learning_rate)
             elif optimizerType == 'RADAM':
                 optimizerClass = RectifiedAdam(learning_rate=learning_rate, warmup_proportion=warmup_proportion,
-                                       decay=min_lr)  # total_steps=total_steps,min_lr=min_lr)
+                                               decay=min_lr)  # total_steps=total_steps,min_lr=min_lr)
             elif optimizerType == 'LOOKAHEAD':
                 optimizerClass = RectifiedAdam(learning_rate=learning_rate, warmup_proportion=warmup_proportion,
-                                       decay=min_lr)  # total_steps=total_steps,min_lr=min_lr)
+                                               decay=min_lr)  # total_steps=total_steps,min_lr=min_lr)
                 optimizerClass = Lookahead(optimizerClass)
             else:
                 print("Optimizer is NOT in string list.")
@@ -249,18 +264,18 @@ class OmerSuperModel(Sequential):
         elif measurment_metric_name.lower() == 'categorical_accuracy':
             measurment_metric = [CategoricalAccuracy]
             self.measurment_metric_name = 'categorical_accuracy'
-        elif measurment_metric_name.lower() == 'iou':
-            measurment_metric = [iou]
-            self.measurment_metric_name = 'iou'
-        elif measurment_metric_name.lower() == 'iou_thresholded':
-            measurment_metric = [iou_thresholded]
-            self.measurment_metric_name = 'iou_thresholded'
+        # elif measurment_metric_name.lower() == 'iou':
+        #     measurment_metric = [iou]
+        #     self.measurment_metric_name = 'iou'
+        # elif measurment_metric_name.lower() == 'iou_thresholded':
+        #     measurment_metric = [iou_thresholded]
+        #     self.measurment_metric_name = 'iou_thresholded'
 
         super().compile(optimizer=optimizerClass, loss=loss, metrics=self.measurment_metric_name)
         # super().compile(loss=loss,optimizer=optimizer,metrics=['accuracy'])
         self.optimizerType = optimizerType
         print("Model was complied. optimizer: %s, learning_rate: %s, momentum: %s" % (
-        self.optimizerType, self.learning_rate, self.momentum))
+            self.optimizerType, self.learning_rate, self.momentum))
 
     """def compile_model_segment(self,optimizer='SGD',learning_rate=0.01,momentum=0.00,loss='categorical_crossentropy',warmup_proportion=0.1,total_steps=10000,min_lr=1e-5):
       optimizerType=optimizer.upper()
@@ -280,31 +295,126 @@ class OmerSuperModel(Sequential):
       self.learning_rate = learning_rate
       self.momentum = momentum
       self.optimizerType = optimizerType
-  
+
       self.isSegmentedModel=True
       print("Model was complied as segmented model. optimizer: %s, learning_rate: %s, momentum: %s"%(self.optimizerType,self.learning_rate,self.momentum))
     """
 
+    def buildDataGeneretor(self, mainClassInstructionsDF, target_img_shape=(256, 256, 3), batch_size=64,
+                           pathColName='ImgPath_Absolute'):
+
+        # Receivce a df file containing all mainClassInstructionsDF
+        # Location col name: ImgPath_Absolute
+
+        testPath = mainClassInstructionsDF[pathColName].values[0]
+        if not os.path.exists(testPath):
+            print("Could not locate sample image from mainClassInstructionsDF")
+            print("Img path: %s" % (testPath))
+
+        start_time = time.time()
+
+        dataset_train, dataset_val, dataset_test = splitDataSet_train_val_test(dataFrame=mainClassInstructionsDF,
+                                                                               val_percent=20, test_percent=10)
+        target_size = target_img_shape[0:2]
+
+        # self.y_test = dataset_test.filter(items=self.classDictionary.values()).values
+        self.X_test = dataset_test.filter(items=[pathColName]).values
+
+        print("Build data generator")
+        # https://vijayabhaskar96.medium.com/multi-label-image-classification-tutorial-with-keras-imagedatagenerator-cd541f8eaf24
+
+        datagen = ImageDataGenerator(rescale=1. / 255.)
+        test_datagen = ImageDataGenerator(rescale=1. / 255.)
+        train_generator = datagen.flow_from_dataframe(
+            dataframe=dataset_train,
+            directory=None,
+            x_col=pathColName,
+            class_mode="raw",
+            y_col=list(self.classDictionary.values()),
+            batch_size=batch_size,
+            seed=42,
+            shuffle=True,
+            target_size=target_size)
+        valid_generator = test_datagen.flow_from_dataframe(
+            dataframe=dataset_val,
+            directory=None,  # app.config['BASE_FOLDER'],
+            x_col=pathColName,
+            class_mode="raw",
+            y_col=list(self.classDictionary.values()),
+            batch_size=batch_size,
+            seed=42,
+            shuffle=True,
+            target_size=target_size)
+        test_generator = test_datagen.flow_from_dataframe(
+            dataframe=dataset_test,
+            directory=None,  # app.config['BASE_FOLDER'],
+            x_col=pathColName,
+            class_mode="raw",
+            y_col=list(self.classDictionary.values()),
+            batch_size=1,
+            seed=42,
+            shuffle=False,
+            target_size=target_size)
+
+        self.test_generator = test_generator
+        self.valid_generator = valid_generator
+        self.train_generator = train_generator
+
+        self.y_test = self.test_generator.labels
+
+        def generator_wrapper(generator):
+            for batch_x, batch_y in generator:
+                yield (batch_x, [batch_y[:, i] for i in range(5)])
+
+        self.STEP_SIZE_TRAIN = self.test_generator.n // self.test_generator.batch_size
+        self.STEP_SIZE_VALID = self.valid_generator.n // self.valid_generator.batch_size
+        self.STEP_SIZE_TEST = self.train_generator.n  # // self.train_generator.batch_size
+
+        self.DataGenerator = 1
+
+        print("test_generator: %s records. Shape: %s" % (self.test_generator.n, str(self.y_test.shape)))
+        print("valid_generator: %s records" % (self.valid_generator.n))
+        print("train_generator: %s records" % (self.train_generator.n))
+
     def trainModel(self, batch_size=34, epochs=30, saveToFile=True, alsoTestModel=True, plotResults=True,
-                   saveTempModel=True):
+                   saveTempModel=True, target_img_shape=(256, 256, 3)):
+
+        self.image_shape = target_img_shape
+
         start_time = time.time()
         callBacks = None
         if self.fit_callback_list != []:
             callBacks = self.fit_callback_list
-        training_results = super().fit(
-            self.X_train,
-            self.y_train,
-            validation_data=(self.X_val, self.y_val),
-            batch_size=batch_size,
-            # Integer or None. Number of samples per gradient update. If unspecified, batch_size will default to 32
-            epochs=epochs,
-            # Integer. Number of epochs to train the model. An epoch is an iteration over the entire x and y data provided.
-            callbacks=callBacks
-            # ,verbose=1
-        )
-        self.execution_time = (time.time() - start_time) / 60.0
-        print("Training execution time (mins)", self.execution_time)
+
+        if self.DataGenerator == 1:
+
+            training_results = super().fit(
+                self.train_generator,
+                steps_per_epoch=self.STEP_SIZE_TRAIN,
+                epochs=epochs,
+                validation_data=self.valid_generator,
+                validation_steps=self.STEP_SIZE_VALID,
+                callbacks=callBacks
+
+            )
+
+        else:  # Regular dataset training
+            training_results = super().fit(
+                self.X_train,
+                self.y_train,
+                validation_data=(self.X_val, self.y_val),
+                batch_size=batch_size,
+                # Integer or None. Number of samples per gradient update. If unspecified, batch_size will default to 32
+                epochs=epochs,
+                # Integer. Number of epochs to train the model. An epoch is an iteration over the entire x and y data provided.
+                callbacks=callBacks
+                # ,verbose=1
+            )
+            self.execution_time = (time.time() - start_time) / 60.0
+            print("Training execution time (mins)", self.execution_time)
+
         self.training_results = training_results
+
         self.batch_size = batch_size
         self.epochs = epochs
 
@@ -315,12 +425,12 @@ class OmerSuperModel(Sequential):
 
         now = datetime.datetime.now()
         self.save_plot_path = os.path.join(self.save_path, "%s-%s-%s %s_%s - %s - train_plot.png" % (
-        now.year, now.month, now.day, now.hour, now.minute, self.modelName))
+            now.year, now.month, now.day, now.hour, now.minute, self.modelName))
 
         # Save model metric so that it will not be overriden:
         if saveTempModel:
             self.modelTempName = self.modelName + " - %s-%s-%s %s_%s" % (
-            now.year, now.month, now.day, now.hour, now.minute)
+                now.year, now.month, now.day, now.hour, now.minute)
         else:
             self.modelTempName = self.modelName
 
@@ -377,17 +487,30 @@ class OmerSuperModel(Sequential):
         return training_results
 
     def testModel(self, showSampleTestSize=None, printResults=True):
-        test_predictions = super().predict(self.X_test)
+        if self.DataGenerator == 1:
+            # print("Test model: STEP_SIZE_TEST: %s" % (self.STEP_SIZE_TEST))
+            test_predictions = super().predict(self.test_generator,
+                                               steps=self.STEP_SIZE_TEST,  # self.STEP_SIZE_TEST,
+                                               max_queue_size=100000,
+                                               verbose=1)
+            # print("test_predictions: %s" % (test_predictions.shape))
+            # print("self.y_test: %s" % (self.y_test.shape))
+        else:
+            test_predictions = super().predict(self.X_test)
         test_predictions_flattened = np.argmax(test_predictions, axis=1)
         y_test_flattened = np.argmax(self.y_test, axis=1)
         listOfImagesAndValues = []
         for i, prediction in enumerate(test_predictions):
-            image = self.X_test[i]
+            if self.DataGenerator == 1:  # If image generator - Load image from instruction path
+                image = load_img_omer(self.X_test[i][0])
+            else:
+                image = self.X_test[i][0]  # If direct image - Image from X_test
             maxScore = np.max(test_predictions[i])
             maxIndex = np.argmax(test_predictions[i])
             indexValue = self.classDictionary[maxIndex]
             rowDesc = {'Image': image, 'maxScore': maxScore, 'maxIndex': maxIndex, 'label': indexValue}
             listOfImagesAndValues.append(rowDesc)
+        # print("y_test_flattened: %s, test_predictions_flattened: %s" % (len(y_test_flattened), len(test_predictions_flattened)))
         cm = confusion_matrix(y_test_flattened, test_predictions_flattened)
         acc = accuracy_score(y_test_flattened, test_predictions_flattened)
         self.accuracyScore = acc
@@ -404,7 +527,7 @@ class OmerSuperModel(Sequential):
                 img = listOfImagesAndValues[randInt]['Image']
                 listOfImages.append(img)
                 title = 'Predicted: %s. Score: %s' % (
-                listOfImagesAndValues[randInt]['label'], round(listOfImagesAndValues[randInt]['maxScore'], 2))
+                    listOfImagesAndValues[randInt]['label'], round(listOfImagesAndValues[randInt]['maxScore'], 2))
                 listOfLabels.append(title)
             display_images_in_plot(listOfImages, listOfLabels)
         return listOfImagesAndValues
@@ -468,11 +591,14 @@ class OmerSuperModel(Sequential):
             print("No file to upload. Please check path or train your model from start. Path: %s" % (loadPath))
 
     def save_model(self, saveMode=1):
+
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
         # Save the enitire model (structure + weights)
         if saveMode == 1:
-            super().save(os.path.join(self.save_path, self.modelName + ".hdf5"))
+            hdf5_path = os.path.join(self.save_path, "%s - Accuracy %s .hdf5"%(self.modelName,self.accuracyScore))
+            print("Saving model to %s" % (self.save_path))
+            super().save(hdf5_path)
         elif saveMode == 2:
             # Save only the weights
             super().save_weights(os.path.join(self.save_path, self.modelName + ".h5"))
@@ -490,7 +616,7 @@ class OmerSuperModel(Sequential):
 
         save_metrics_path = os.path.join(matric_save_path, "ModelOutput - " + self.modelName,
                                          "%s-%s-%s %s_%s - %s - train_history.json" % (
-                                         now.year, now.month, now.day, now.hour, now.minute, self.modelName))
+                                             now.year, now.month, now.day, now.hour, now.minute, self.modelName))
         # Save model history
         if saveMode == 1 and self.training_results.history:
             with open(save_metrics_path, "w") as json_file:
@@ -561,7 +687,7 @@ class OmerSuperModel(Sequential):
 
         if listOfMatricesToCompare == []:
             compare_json = allMatrics.T
-            print(compare_json)
+            # print(compare_json)
         else:
             compare_json = allMatrics.filter(items=listOfMatricesToCompare).T
 
@@ -569,11 +695,12 @@ class OmerSuperModel(Sequential):
             'Matrics were compared. Please use the following command: "%s.compare_json.sort_values(by=["accuracy"],ascending=False).head(10)"' % self.modelName)
         # compare_json.sort_values(by=['accuracy'],ascending=False).head(10)
         self.compare_json = compare_json
+        return self.compare_json
 
     def showTrainingHistory(self, saveToFile=True):
         now = datetime.datetime.now()
         self.save_plot_path = os.path.join(self.save_path, "%s-%s-%s %s_%s - %s - train_plot.png" % (
-        now.year, now.month, now.day, now.hour, now.minute, self.modelName))
+            now.year, now.month, now.day, now.hour, now.minute, self.modelName))
         plot_img_path = self.save_plot_path
         # print(plot_img_path)
         if not os.path.exists(self.save_plot_path):
@@ -592,7 +719,13 @@ class OmerSuperModel(Sequential):
         plt.imshow(img)
 
     def evaluate_results(self):
-        evaluation_results = super().evaluate(self.X_test, self.y_test)
+
+        if self.DataGenerator == 1:
+            evaluation_results = super().evaluate(self.test_generator)
+
+        else:
+            evaluation_results = super().evaluate(self.X_test, self.y_test)
+
         self.evaluation_results = evaluation_results
 
     def evaluate_save_model(self, saveToFile=True):
@@ -600,7 +733,11 @@ class OmerSuperModel(Sequential):
         self.showTrainingHistory()
 
         # Evaluate on test data
-        evaluation_results = super().evaluate(self.X_test, self.y_test)
+        if self.DataGenerator == 1:
+            evaluation_results = super().evaluate(self.test_generator)
+
+        else:
+            evaluation_results = super().evaluate(self.X_test, self.y_test)
         # print(evaluation_results)
 
         # Evaluate on test data
@@ -630,13 +767,19 @@ class OmerSuperModel(Sequential):
             self.load_model(self.X_train, self.y_train, self.X_val, self.y_val, self.X_test, self.y_test,
                             self.classDictionary)
 
-    def preProcessImages(self, listOfImagePaths, img_Shape, batchSize ):
+    def loadAndPredictImages(self, listOfImagePaths, img_Shape, thresholdForPositive=0.5, batchSize=10,
+                             showOnlySFW=False,
+                             showOnlyMatches=False, displaySample=False, printResults=False):
         fileIndex = 0
         totalImages = len(listOfImagePaths)
-
+        listOfImageMatches = []
+        listOfImageTitles = []
+        listOfImageMatchesPath = []
+        classesMatchList = []
+        classesPredictItem = []
         while fileIndex < totalImages:
             listOfImagesNorm = []
-            listOfValidImgPaths = []
+            listOfPaths = []
             nexBatchRunSize = min(batchSize, len(listOfImagePaths) - fileIndex)
             for batchIndex in range(nexBatchRunSize):
                 imgPath = listOfImagePaths[fileIndex]
@@ -645,86 +788,71 @@ class OmerSuperModel(Sequential):
                     img = resize_image(img, desired_width=img_Shape, desired_height=img_Shape)
                     img = img / 255
                     listOfImagesNorm.append(img)
-                    listOfValidImgPaths.append(imgPath)
+                    listOfPaths.append(imgPath)
                 fileIndex += 1
                 # print("Index: %s, batch run %s  Path %s"%(fileIndex,batchIndex,imgPath))
-            print("Finished batch. %s images will be evaluated out of %s" % (len(listOfValidImgPaths), len(listOfImagePaths)))
-        return listOfImagesNorm,listOfValidImgPaths
+            print("Finshes batch. %s images will be evaluated" % len(listOfImagesNorm))
+            print("Predicting batch")
+            predictProbabilities = super().predict(np.array((listOfImagesNorm)))
 
-
-    def loadAndPredictImages(self, listOfImagePaths, img_Shape, thresholdForPositive=0.5, batchSize=10, showOnlySFW=False,
-                             showOnlyMatches=False,displaySample=False,printResults=False):
-
-        listOfImagesNorm, listOfValidImgPaths = self.preProcessImages(listOfImagePaths=listOfImagePaths,
-                                                                      img_Shape=img_Shape,
-                                                                      batchSize=10)
-
-        listOfImageMatches = []
-        listOfImageTitles = []
-        listOfImageMatchesPath = []
-        classesMatchList = []
-        classesPredictItem = []
-
-        print("Predicting batch")
-        listOfImagesNorm_np = np.array((listOfImagesNorm))
-        predictProbabilities = super().predict(listOfImagesNorm_np)
-
-        # Get all possibilities:
-        for predIndex, predictProbability in enumerate(predictProbabilities):
-            predictItem={}
-            if predIndex == 0:
-                if printResults:print(predictProbability)
-                if printResults:print(thresholdForPositive)
-            imgTitle, wasMatchFound, isSFW, matchList,predictionStringList = self.predictionToString(predictProbability, thresholdForPositive)
-            if (wasMatchFound or showOnlyMatches == False) and not (isSFW == False and showOnlySFW == True):
-                pathIM = listOfValidImgPaths[predIndex]
-                listOfImageMatches.append(listOfImagesNorm[predIndex])
-                listOfImageTitles.append(imgTitle)
-                listOfImageMatchesPath.append(pathIM)
-                if wasMatchFound:
-                    if printResults:print("Match was found: '%s' - for %s" % (imgTitle, pathIM))
-                predictItem['imagePath']=pathIM
-                predictItem['imageTitle'] = imgTitle
-                predictItem['wasMatchFound'] = wasMatchFound
-                predictItem['isSFW'] = isSFW
-                predictItem['matchList'] = matchList
-                predictItem['predictionStringList'] = predictionStringList
-                classesPredictItem.append(predictItem)
-            else:
-                if printResults:print("Not appended: %s - %s" % (imgTitle, pathIM))
+            # Get all possibilities:
+            for predIndex, predictProbability in enumerate(predictProbabilities):
+                predictItem = {}
+                if predIndex == 0:
+                    if printResults: print(predictProbability)
+                    if printResults: print(thresholdForPositive)
+                imgTitle, wasMatchFound, isSFW, matchList, predictionStringList = self.predictionToString(
+                    predictProbability, thresholdForPositive)
+                if (wasMatchFound or showOnlyMatches == False) and not (isSFW == False and showOnlySFW == True):
+                    pathIM = listOfPaths[predIndex]
+                    listOfImageMatches.append(listOfImagesNorm[predIndex])
+                    listOfImageTitles.append(imgTitle)
+                    listOfImageMatchesPath.append(pathIM)
+                    if wasMatchFound:
+                        if printResults: print("Match was found: '%s' - for %s" % (imgTitle, pathIM))
+                    predictItem['imagePath'] = pathIM
+                    predictItem['imageTitle'] = imgTitle
+                    predictItem['wasMatchFound'] = wasMatchFound
+                    predictItem['isSFW'] = isSFW
+                    predictItem['matchList'] = matchList
+                    predictItem['predictionStringList'] = predictionStringList
+                    classesPredictItem.append(predictItem)
+                else:
+                    if printResults: print("Not appended: %s - %s" % (imgTitle, pathIM))
+            fileIndex += 1
         if displaySample:
             display_images_in_plot(listOfImageMatches[0:15], listOfImageTitles[0:15], images_per_row=4)
-        return listOfImageMatchesPath,listOfImageTitles, classesMatchList,classesPredictItem
+        return listOfImageMatchesPath, listOfImageTitles, classesMatchList, classesPredictItem
 
-    def predictionToString(self, predictProbability, thresholdForPositiveInt=0.5,printResults=False):
+    def predictionToString(self, predictProbability, thresholdForPositiveInt=0.5, printResults=False):
         listOfPositives = []
         imgTitle = ""
         wasMatchFound = False
         isSFW = True
-        matchList={}
+        matchList = {}
         predictionStringList = []
         for i in range(len(predictProbability)):
             try:
                 className = self.classDictionary[i]
-                prediction = round(predictProbability[i]*100)
-                if prediction > thresholdForPositiveInt*100:
+                prediction = round(predictProbability[i] * 100)
+                if prediction > thresholdForPositiveInt * 100:
                     # print("Img %s: Positive: %s(%s) " % (i,className, prediction))
                     imgTitle += "%s(%s Percent) " % (className, prediction)
                     listOfPositives.append(className)
                     wasMatchFound = True
                     if className in ('Penis', 'Vagina', 'Butt', 'BreastWoman'):
                         isSFW = False
-                    matchList[className]=prediction
+                    matchList[className] = prediction
             except:
-                if printResults:print("Issue getting ClassName for value: %s - Class Dict: %s"%(i,str(self.classDictionary)))
-        predictionString = str(np.round(predictProbability*100))
+                if printResults: print(
+                    "Issue getting ClassName for value: %s - Class Dict: %s" % (i, str(self.classDictionary)))
+        predictionString = str(np.round(predictProbability * 100))
         predictionStringList.append(predictionString)
         if wasMatchFound == False:
             imgTitle = "No Match Found: \n%s" % (predictionString)
         else:
             imgTitle = imgTitle + '\n%s' % (predictionString)
-        return imgTitle, wasMatchFound, isSFW, matchList,predictionStringList
-
+        return imgTitle, wasMatchFound, isSFW, matchList, predictionStringList
 
     def test_real_images(self, realImagePath, modelImgShape=224, threshold=0.5, batchSize=10, showOnlyMatches=False,
                          showOnlySFW=False):
@@ -750,7 +878,6 @@ class OmerSuperModel(Sequential):
         listOfImagePaths = getListOfFiles(realImagePath)
         self.loadAndPredictImages(listOfImagePaths, img_Shape=modelImgShape, thresholdForPositive=threshold,
                                   batchSize=batchSize, showOnlySFW=showOnlySFW, showOnlyMatches=showOnlyMatches)
-
 
     def classificationReport_MultiLabel(self):
         y_predict = super().predict(self.X_test)
@@ -788,6 +915,9 @@ class OmerSuperModel(Sequential):
             print("%s - %s" % (name, str(results)))
 
         self.classPredScore = pd.DataFrame(testScorePerClass)
+
+
+
 
 """
 testClass = OmerSuperModel(X_train_norm, y_train_Catg, X_val_norm, y_val_Catg, X_test_norm, y_test_Catg,

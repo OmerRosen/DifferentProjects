@@ -1,7 +1,8 @@
 import numpy as np
 from numpy import save
 from numpy import asarray
-from Snippets_Various import load_img_omer, resize_image, display_images_in_plot, splitDataSet_train_val_test,JsonEncoder
+from omerprojects.NudityDetector.Snippets_Various import load_img_omer, resize_image, display_images_in_plot, splitDataSet_train_val_test, \
+    JsonEncoder
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, multilabel_confusion_matrix
 # import tensorflow as tf
 
@@ -250,29 +251,6 @@ class OmerSuperModel(Sequential):
         print("Model was complied. optimizer: %s, learning_rate: %s, momentum: %s" % (
             self.optimizerType, self.learning_rate, self.momentum))
 
-    """def compile_model_segment(self,optimizer='SGD',learning_rate=0.01,momentum=0.00,loss='categorical_crossentropy',warmup_proportion=0.1,total_steps=10000,min_lr=1e-5):
-      optimizerType=optimizer.upper()
-      if optimizerType=='SGD':
-        optimizerClass = SGD(learning_rate=learning_rate,momentum=momentum)
-      elif optimizerType=='ADAM':
-        optimizerClass = Adam(learning_rate=learning_rate)
-      elif optimizerType=='RMSPROP':
-        optimizerClass = RMSprop(learning_rate=learning_rate)
-      elif optimizerType=='RADAM':
-        optimizerClass = RAdam(learning_rate=learning_rate,warmup_proportion=warmup_proportion,total_steps=total_steps,min_lr=min_lr)
-      elif optimizerType=='LOOKAHEAD':
-        optimizerClass = RAdam(learning_rate=learning_rate,warmup_proportion=warmup_proportion,total_steps=total_steps,min_lr=min_lr)
-        optimizerClass = Lookahead(optimizerClass)
-      super().compile(optimizer=optimizerClass, loss=loss, metrics=[iou, iou_thresholded])
-      #super().compile(loss=loss,optimizer=optimizer,metrics=['accuracy'])
-      self.learning_rate = learning_rate
-      self.momentum = momentum
-      self.optimizerType = optimizerType
-
-      self.isSegmentedModel=True
-      print("Model was complied as segmented model. optimizer: %s, learning_rate: %s, momentum: %s"%(self.optimizerType,self.learning_rate,self.momentum))
-    """
-
     def buildDataGeneretor(self, mainClassInstructionsDF, target_img_shape=(256, 256, 3), batch_size=64,
                            pathColName='ImgPath_Absolute'):
 
@@ -339,9 +317,9 @@ class OmerSuperModel(Sequential):
             for batch_x, batch_y in generator:
                 yield (batch_x, [batch_y[:, i] for i in range(5)])
 
-        self.STEP_SIZE_TRAIN = self.test_generator.n // self.test_generator.batch_size
+        self.STEP_SIZE_TRAIN = self.train_generator.n // self.train_generator.batch_size
         self.STEP_SIZE_VALID = self.valid_generator.n // self.valid_generator.batch_size
-        self.STEP_SIZE_TEST = self.train_generator.n  # // self.train_generator.batch_size
+        self.STEP_SIZE_TEST = self.test_generator.n // self.test_generator.batch_size
 
         self.DataGenerator = 1
 
@@ -483,8 +461,9 @@ class OmerSuperModel(Sequential):
             indexValue = self.classDictionary[maxIndex]
             rowDesc = {'Image': image, 'maxScore': maxScore, 'maxIndex': maxIndex, 'label': indexValue}
             listOfImagesAndValues.append(rowDesc)
-        # print("y_test_flattened: %s, test_predictions_flattened: %s" % (len(y_test_flattened), len(test_predictions_flattened)))
-        cm = confusion_matrix(y_test_flattened, test_predictions_flattened)
+        print("y_test_flattened: %s, test_predictions_flattened: %s" % (
+        len(y_test_flattened), len(test_predictions_flattened)))
+        cm = None  # confusion_matrix(y_test_flattened, test_predictions_flattened)
         acc = accuracy_score(y_test_flattened, test_predictions_flattened)
         self.accuracyScore = acc
 
@@ -565,13 +544,16 @@ class OmerSuperModel(Sequential):
 
     def save_model(self, saveMode=1):
 
+        self.hdf5_path = os.path.join(self.save_path,
+                                      "%s - Accuracy %s.hdf5" % (self.modelName, round(self.accuracyScore, 1)))
+
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
         # Save the enitire model (structure + weights)
         if saveMode == 1:
-            hdf5_path = os.path.join(self.save_path, "%s - Accuracy %s .hdf5"%(self.modelName,self.accuracyScore))
-            print("Saving model to %s" % (self.save_path))
-            super().save(hdf5_path)
+            hdf5_path = self.hdf5_path
+            print("Saving model to %s" % (self.hdf5_path))
+            super().save(self.hdf5_path)
         elif saveMode == 2:
             # Save only the weights
             super().save_weights(os.path.join(self.save_path, self.modelName + ".h5"))

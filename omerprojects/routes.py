@@ -4,6 +4,7 @@ from omerprojects import app
 from omerprojects.TwitterClassifierFolder.pythonFiles.CollectAllAvailableModels import gatherAllAvailableModels
 from omerprojects.TwitterClassifierFolder.extractAndTrainClassifier import classifyPeopleOfInterest
 from omerprojects.TwitterClassifierFolder.whichTwitterPricessAreYou import analyseTweetsForRandomUser
+from omerprojects.NudityDetector.MakePredictionUsingWinningModel import takeImagePath_ReturnPredictions
 from werkzeug.utils import secure_filename
 
 import os
@@ -176,39 +177,30 @@ def nudityDetector():
                                     "absoluteSavePath":absoluteSavePath,
                                     "relativeSavePath":relativeSavePath,
                                     }
-                        listOfImagePaths.append(distList)
+                        listOfImagePaths.append(absoluteSavePath)
                         limitCount -= 1
                 else:
                     break
+
+            winningModelPath = r"C:\Users\omerro\Google Drive\Data Science Projects\OmerPortal\omerprojects\NudityDetector\Models\ModelOutput - NudiyDetector_Draft2\NudiyDetector_Draft2 - Accuracy 0.6.hdf5"
+            imageListClassification = takeImagePath_ReturnPredictions(imagesPathList=listOfImagePaths,
+                                                                      requestedModelAbsPath=winningModelPath)
+
+
+
 
             flash(
                 'Process Completed. %s files were retrieved'%(len(files))
                 , category='success')
 
             return render_template('NudityDetector.html', title='Nudity detector',
-                                   form=form, listOfImagePaths=listOfImagePaths, showFiles=True
+                                   form=form, imageListClassification=imageListClassification, showFiles=True
                                    )
     except Exception as e:
         flash(
             'Process Failed. Error: %s ' % (e)
             , category='warning')
 
-    # if request.method == 'POST':
-    #     ## check if the post request has the file part
-    #     if 'file' not in request.files:
-    #         flash('No file part', category='warning')
-    #         return redirect(request.url)
-    #     file = request.files['file']
-    #     # if user does not select file, browser also
-    #     # submit an empty part without filename
-    #     if file.filename == '':
-    #         flash('No selected file')
-    #         return redirect(request.url)
-    #     if file and allowed_file(file.filename):
-    #         filename = secure_filename(file.filename)
-    #         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    #         return redirect(url_for('uploaded_file',
-    #                                 filename=filename))
 
     return render_template('NudityDetector.html', title='Nudity Detector', form=form, showFiles=False)
 

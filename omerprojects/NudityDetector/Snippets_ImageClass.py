@@ -1,4 +1,4 @@
-from Snippets_Various import load_img_omer,resize_image,JsonEncoder,display_images_in_plot,rotate_img_x_degrees
+from omerprojects.NudityDetector.Snippets_Various import load_img_omer,resize_image,JsonEncoder,display_images_in_plot,rotate_img_x_degrees
 import sys
 import gc
 import numpy as np
