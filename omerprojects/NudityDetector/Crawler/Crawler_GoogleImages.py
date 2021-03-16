@@ -13,21 +13,21 @@ import base64
 import shutil
 
 
-search_term = "bathing suit model male" # tomatoes, bell peppers, beetroot
+search_term = "barely legal titties" # tomatoes, bell peppers, beetroot
 # Setup base download folder
 downloads = os.path.join(app.config['BASE_FOLDER'],"NudityDetector/Crawler/downloads")
-num_images_requested=200
+num_images_requested=700
 batchSize = 50
 # Each scrolls provides 400 image approximately
 number_of_scrolls = int(num_images_requested / 400) + 1
 
 #Path of winning model for prediction
-winningModel_AbsPath =  r"C:/Users/omerro/Google Drive/Data Science Projects/OmerPortal/omerprojects/NudityDetector/Models/ModelOutput - NudiyDetector_Draft2/NudiyDetector_Draft2 - Accuracy 0.6.hdf5"
+winningModel_AbsPath =  r"C:\Users\omerro\Google Drive\Data Science Projects\OmerPortal\omerprojects\NudityDetector\Models\ModelOutput - NudiyDetector_Draft2\NudiyDetector_Draft2 - Accuracy 0.53.hdf5"
 
 # Imamge link store
 imgs_urls = set()
 
-img_dir = os.path.join(downloads,search_term)
+img_dir = os.path.join(downloads,"CrawlerOutput_"+search_term)
 if not os.path.exists(img_dir):
     os.makedirs(img_dir)
 # Temp download dir: C:\Users\omerro\AppData\Local\Temp
@@ -101,7 +101,7 @@ try:
 
             if not img_url in listOfImageTempPaths and img_url is not None:
                 listOfImageTempPaths.append(img_url)
-                imgTempPath = urlretrieve(img_url)[0]
+                imgTempPath = urlretrieve(url=img_url)[0]
                 imgTempPath.replace('\\', '/')
 
                 os.rename(imgTempPath, imgTempPath + '.jpg')
@@ -115,28 +115,39 @@ try:
 
         imageProbailitiesList = takeImagePath_ReturnPredictions(imagesPathList=listOfImagePaths_ForBatch, requestedModelAbsPath=winningModel_AbsPath)
 
+        count = 1
         for imgName, classes in imageProbailitiesList.items():
             fileDateStamp = datetime.today()
-            fileName = "%s_%s_Classes" % (fileDateStamp.strftime("%Y-%m-%d_%H-%M-%S"), imgName)
-            filePath = downloads
+            fileName = "Classes"
+            # fileName = "%s_%s_Classes" % (fileDateStamp.strftime("%Y-%m-%d_%H-%M-%S"), imgName)
+            filePath = img_dir
+            leadClass = ""
+            leadClassProb = 0
             for className, prob in classes['Classifications'].items():
-                if prob > 0.5:
+                if prob > 0.3:
                     fileName += "_" + className
-                    filePath = os.path.join(filePath, className)
-                    if not os.path.exists(filePath):
-                        os.makedirs(filePath)
-            if filePath==downloads: #If no class was recognized, used folder None
+                    if leadClassProb<prob:
+                        leadClass=className
+                        leadClassProb=prob
+            filePath = os.path.join(filePath, leadClass)
+            if not os.path.exists(filePath):
+                os.makedirs(filePath)
+            if filePath==img_dir: #If no class was recognized, used folder None
                 filePath = os.path.join(filePath, "NoClass")
+                fileName = "NoClass"
                 if not os.path.exists(filePath):
                     os.makedirs(filePath)
-            finalPathName = os.path.join(filePath, fileName + '.jpg')
+            finalFileName = "%s %s -%s.jpg" % (fileName,fileDateStamp.strftime("%Y-%m-%d_%H-%M-%S"), count)
+            finalPathName = os.path.join(filePath, finalFileName)
             # print(finalPathName)
             try:
-                # shutil.copy(classes['imgPath'], finalPathName)
-                os.rename(classes['imgPath'], classes['imgPath'].replace(imgName,fileName))
+                shutil.copy(classes['imgPath'], finalPathName)
+                os.rename(classes['imgPath'], classes['imgPath'].replace(imgName,finalFileName))
                 listOfImageSavedPaths.append(finalPathName)
             except Exception as e:
                 print("Couldn't rename file %s to %s"%(classes['imgPath'], finalPathName))
+                print(e)
+            count+=1
 
         print(imageProbailitiesList)
 
@@ -147,9 +158,11 @@ try:
             try:
                 # if found click to load more image
                 browser.find_element_by_xpath("//input[@value='Show more results']").click()
+                print("\nClicked Show more results\n")
             except Exception as e:
                 # if not exit
                 print("End of page")
+                print(e)
                 break
         elif len(listOfImageSavedPaths)<num_images_requested:
             print("Sufficient number of images was reached: %s"%num_images_requested)

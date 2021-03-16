@@ -1,5 +1,6 @@
 from omerprojects.__init__ import  app
 from omerprojects.NudityDetector.ImageClassifierClass import OmerSuperModel,load_dataset
+from omerprojects.NudityDetector.LoadClassCSVInstructions import listAllImageFilesAndTheirClasses
 import json
 import pandas as pd
 
@@ -15,70 +16,6 @@ import os
 import tensorflow.python.util.deprecation as deprecation
 deprecation._PRINT_DEPRECATION_WARNINGS = False
 
-def getListOfFiles(dirName):
-    # create a list of file and sub directories
-    # names in the given directory
-    listOfFile = os.listdir(dirName)
-    bar = progressbar.ProgressBar(max_value=len(listOfFile),
-                                  widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-    bar.start()
-    allFiles = list()
-    # Iterate over all the entries
-    for i, entry in enumerate(listOfFile):
-        # Create full path
-        fullPath = os.path.join(dirName, entry)
-        # If entry is a directory then get the list of files in this directory
-        if os.path.isdir(fullPath):
-            allFiles = allFiles + getListOfFiles(fullPath)
-        else:
-            allFiles.append(fullPath)
-        bar.update(i)
-    return allFiles
-
-
-def listAllImageFilesAndTheirClasses(absoluteClassPath,classDict,saveToCSV=True):
-
-    classImgFolder = absoluteClassPath
-
-    print("Getting all files")
-    allFiles = getListOfFiles(classImgFolder)
-
-    # Create a dataframe for containing file information and classes
-    dataFrameColumns = ['ImgId', 'ImgPath_Relative','labels','ImgPath_Absolute']
-    for key, val in classDict.items():
-        dataFrameColumns.append(val)
-
-    mainClassInstructionsDict = {}
-
-    imageId=1
-    for i, filePath in enumerate(allFiles):
-        if filePath.lower().endswith(('.png', '.jpg', '.jpeg','.jfif')):
-            relativePath = filePath.replace(app.config['BASE_FOLDER'], '')
-            imageInfo = {'ImgPath_Relative': relativePath,
-                         'ImgPath_Absolute': filePath}
-            listOfFolders = filePath.split('\\')
-            labels=""
-            for folder in listOfFolders:
-                if folder in classDict.values():
-                    imageInfo[folder] = 1
-                    labels+=folder+','
-            if labels.endswith((',')):
-                labels=labels[:len(labels)-1]
-
-            imageInfo['labels']=labels
-            mainClassInstructionsDict[imageId] = imageInfo
-            imageId += i
-
-    mainClassInstructionsDF = pd.DataFrame(mainClassInstructionsDict).fillna(0)
-    mainClassInstructionsDF = mainClassInstructionsDF.T.filter(items=dataFrameColumns)
-
-    if saveToCSV:
-        path_ImagePathsAndClasses = os.path.join(classImgFolder, 'ImagePathsAndClasses.csv')
-        mainClassInstructionsDF.to_csv(path_or_buf=path_ImagePathsAndClasses,
-                                   index_label='ImgId')
-        print("Saved ImagePathsAndClasses to %s"%(path_ImagePathsAndClasses))
-
-    return  mainClassInstructionsDF
 
 
 def splitDataSet_train_val_test(dataFrame,val_percent=20,test_percent=10):
@@ -103,7 +40,7 @@ def splitDataSet_train_val_test(dataFrame,val_percent=20,test_percent=10):
 
 if __name__ == '__main__':
 
-    classDict = {0: 'Penis', 1: 'Vagina', 2: 'Butt', 3: 'BreastWoman', 4: 'BreastMan', 5: 'BathingSuite', 6: 'Banana', 7: 'Peach'}
+    classDict = {0: 'Penis', 1: 'Vagina', 2: 'Butt', 3: 'BreastWoman', 4: 'ChestMan', 5: 'BathingSuite', 6: 'Banana', 7: 'Peach'}
 
     classImgFolder = os.path.join(app.config['BASE_FOLDER'],"NudityDetector/Classes")
     path_ImagePathsAndClasses = os.path.join(classImgFolder, 'ImagePathsAndClasses.csv')

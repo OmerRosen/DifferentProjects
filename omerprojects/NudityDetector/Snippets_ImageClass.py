@@ -215,7 +215,7 @@ If label is mask, augment it the same way the image is augmented
 if __name__ == '__main__':
 
     print('Class Loaded successfully')
-    reverseClassDict={'Penis': 0, 'Vagina': 1, 'Butt': 2, 'BreastWoman': 3, 'BreastMan': 4, 'BathingSuite': 5, 'Banana': 6, 'Peach': 7}
+    reverseClassDict={'Penis': 0, 'Vagina': 1, 'Butt': 2, 'BreastWoman': 3, 'ChestMan': 4, 'BathingSuite': 5, 'Banana': 6, 'Peach': 7}
     aclass = OmerImageClass(imageId=1,reverseClassDict=reverseClassDict, imagePath='D:/Google Drive/Harvard HW/Final Project/Classes/Peach/Banana/Peach_Banana - 2.jpg',saveFolder='D:\Google Drive\Harvard HW\Final Project\DataSet',printResults=1)
     print(aclass.imagePath)
     aclass.reshape_Img()

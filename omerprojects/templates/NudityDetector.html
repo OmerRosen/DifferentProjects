@@ -30,7 +30,7 @@
             {% for imageName,Info in imageListClassification.items() %}
                     <div class="col-xs-4">
                         <h4>{{ imageName }}</h4>
-                        <img src=" {{ Info.imgPath.relativeSavePath }} " class="img-responsive">
+                        <img src=" {{ Info.additionalInfo }} " class="img-responsive">
                         {% for className,classProb in Info.Classifications.items() %}
                         <h6>{{ className }} - {{ classProb }}</h6>
                         {% endfor %}

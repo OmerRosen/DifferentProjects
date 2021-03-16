@@ -18,6 +18,7 @@ from tensorflow.keras.models import load_model, Model, Sequential
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.losses import CategoricalCrossentropy, Hinge
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
+from tensorflow.keras.applications.vgg16 import preprocess_input as preprocess_input_vgg16
 
 from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.metrics import CategoricalAccuracy, Accuracy, BinaryCrossentropy, CosineSimilarity
@@ -280,7 +281,7 @@ class OmerSuperModel(Sequential):
             dataframe=dataset_train,
             directory=None,
             x_col=pathColName,
-            class_mode="raw",
+            class_mode="multi_output",
             y_col=list(self.classDictionary.values()),
             batch_size=batch_size,
             seed=42,
@@ -290,7 +291,7 @@ class OmerSuperModel(Sequential):
             dataframe=dataset_val,
             directory=None,  # app.config['BASE_FOLDER'],
             x_col=pathColName,
-            class_mode="raw",
+            class_mode="multi_output",
             y_col=list(self.classDictionary.values()),
             batch_size=batch_size,
             seed=42,
@@ -300,7 +301,7 @@ class OmerSuperModel(Sequential):
             dataframe=dataset_test,
             directory=None,  # app.config['BASE_FOLDER'],
             x_col=pathColName,
-            class_mode="raw",
+            class_mode="multi_output",
             y_col=list(self.classDictionary.values()),
             batch_size=1,
             seed=42,

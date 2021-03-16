@@ -36,57 +36,6 @@ def getListOfFiles(dirName):
     return allFiles
 
 
-def listAllImageFilesAndTheirClasses(absoluteClassPath,classDict,saveToCSV=True):
-
-    classImgFolder = absoluteClassPath
-
-    print("Getting all files")
-    allFiles = getListOfFiles(classImgFolder)
-
-    # Create a dataframe for containing file information and classes
-    dataFrameColumns = ['ImgId', 'ImgPath_Relative','labels','ImgPath_Absolute','ImgPath_GoogleDrive']
-    for key, val in classDict.items():
-        dataFrameColumns.append(val)
-
-    mainClassInstructionsDict = {}
-
-    imageId=1
-    for i, filePath in enumerate(allFiles):
-        if filePath.lower().endswith(('.png', '.jpg', '.jpeg','.jfif')):
-            relativePath = filePath.replace(app.config['BASE_FOLDER'], '')
-            googleDrivePath = filePath.replace(app.config['BASE_FOLDER'], '/content/drive/MyDrive/Data Science Projects/OmerPortal/omerprojects')
-            imageInfo = {'ImgPath_Relative': relativePath.replace("\\","/"),
-                         'ImgPath_Absolute': filePath,
-                         'ImgPath_GoogleDrive': googleDrivePath.replace("\\","/")
-                         }
-            listOfFolders = filePath.split('\\')
-            labels=""
-            for folder in listOfFolders:
-                if folder in classDict.values():
-                    imageInfo[folder] = 1
-                    labels+=folder+','
-            if labels.endswith((',')):
-                labels=labels[:len(labels)-1]
-
-            imageInfo['labels']=labels
-            mainClassInstructionsDict[imageId] = imageInfo
-            imageId += i
-
-    mainClassInstructionsDF = pd.DataFrame(mainClassInstructionsDict).fillna(0)
-    mainClassInstructionsDF = mainClassInstructionsDF.T.filter(items=dataFrameColumns)
-
-    if saveToCSV:
-        path_ImagePathsAndClasses = os.path.join(classImgFolder, 'ImagePathsAndClasses.csv')
-        mainClassInstructionsDF.to_csv(path_or_buf=path_ImagePathsAndClasses,
-                                   index_label='ImgId')
-        print("Saved ImagePathsAndClasses to %s"%(path_ImagePathsAndClasses))
-
-    return  mainClassInstructionsDF
-
-
-
-if __name__ == '__main__':
-
     classDict = {0: 'Penis', 1: 'Vagina', 2: 'Butt', 3: 'BreastWoman', 4: 'BreastMan', 5: 'BathingSuite', 6: 'Banana', 7: 'Peach'}
     target_img_shape=(256, 256, 3)
     batch_size = 64

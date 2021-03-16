@@ -162,8 +162,9 @@ def nudityDetector():
         if request.method == 'POST':
 
             listOfImagePaths = []
+            listOfImageRelativePaths = []
             files = request.files.getlist("file")
-            limitCount = 10
+            limitCount = 20
             for file in files:
                 if limitCount > 0:
                     if allowed_file(file.filename):
@@ -178,13 +179,15 @@ def nudityDetector():
                                     "relativeSavePath":relativeSavePath,
                                     }
                         listOfImagePaths.append(absoluteSavePath)
+                        listOfImageRelativePaths.append(relativeSavePath)
                         limitCount -= 1
                 else:
                     break
 
-            winningModelPath = r"C:\Users\omerro\Google Drive\Data Science Projects\OmerPortal\omerprojects\NudityDetector\Models\ModelOutput - NudiyDetector_Draft2\NudiyDetector_Draft2 - Accuracy 0.6.hdf5"
+            winningModelPath = r"C:\Users\omerro\Google Drive\Data Science Projects\OmerPortal\omerprojects\NudityDetector\Models\ModelOutput - ResnetModel_LastBlock\ResnetModel_LastBlock_Shape_224_Accuracy_74.hdf5"
             imageListClassification = takeImagePath_ReturnPredictions(imagesPathList=listOfImagePaths,
-                                                                      requestedModelAbsPath=winningModelPath)
+                                                                      requestedModelAbsPath=winningModelPath,
+                                                                      additionalInfoList=listOfImageRelativePaths)
 
 
 

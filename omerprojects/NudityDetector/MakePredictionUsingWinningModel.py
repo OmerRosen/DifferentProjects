@@ -40,10 +40,12 @@ from tensorflow.keras.models import load_model, Model, Sequential
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 
 
-def loadAndPrepareImgForPrediction(img_path, imgShape=(256, 256, 3)):
+def loadAndPrepareImgForPrediction(img_path, imgShape=(256, 256, 3), shouldNormelize=True):
     img = load_img_omer(path=img_path)
     imgName = os.path.basename(img_path)
     imgTitle = os.path.splitext(imgName)[0]
+
+
 
     if img is None:
         print("Could not load image: %s" % (img_path))
@@ -52,6 +54,9 @@ def loadAndPrepareImgForPrediction(img_path, imgShape=(256, 256, 3)):
         desired_width = imgShape[1]
 
         img = resize_image(img, desired_height=desired_height, desired_width=desired_width)
+
+        if shouldNormelize:
+            img = img / 255.0
 
     return img, imgTitle
 
@@ -79,7 +84,7 @@ def loadClassDict(ClassDictPath):
     return classDict, reverseClassDict
 
 
-def takeImagePath_ReturnPredictions(imagesPathList, requestedModelAbsPath, classDictionaryPath=os.path.join(app.config['BASE_FOLDER'], 'NudityDetector/Classes/ClassDictionary.json')):
+def takeImagePath_ReturnPredictions(imagesPathList, requestedModelAbsPath, classDictionaryPath=os.path.join(app.config['BASE_FOLDER'], 'NudityDetector/Classes/ClassDictionary.json'),additionalInfoList=[]):
     listOfImageFiles = imagesPathList
 
     basePath = os.path.join(app.config['BASE_FOLDER'], 'NudityDetector')
@@ -101,13 +106,17 @@ def takeImagePath_ReturnPredictions(imagesPathList, requestedModelAbsPath, class
         listOfNormelizedImgs = []
         listOfImageTitles = []
         listOfImagePaths = []
+        listOfAdditionalInfo = []
 
-        for file in listOfImageFiles:
-            img, imgTitle = loadAndPrepareImgForPrediction(img_path=file, imgShape=img_input_shape)
+        for i,file in enumerate(listOfImageFiles):
+            img, imgTitle = loadAndPrepareImgForPrediction(img_path=file, imgShape=img_input_shape, shouldNormelize=True)
             if img is not None:
                 listOfNormelizedImgs.append(img)
                 listOfImageTitles.append(imgTitle)
                 listOfImagePaths.append(file)
+                if len(listOfImageFiles)==len(additionalInfoList):
+                    additionalInfo = additionalInfoList[i]
+                    listOfAdditionalInfo.append(additionalInfo)
 
         # Convert list of numpy to tensor array:
         tst_dataset = np.array(listOfNormelizedImgs)
@@ -122,7 +131,10 @@ def takeImagePath_ReturnPredictions(imagesPathList, requestedModelAbsPath, class
         for i, pred in enumerate(prediction_prob):
             imgLabel = listOfImageTitles[i]
             imgPath = listOfImagePaths[i]
-            imageProbailitiesList[imgLabel] = {'imgPath':imgPath}
+            additionalInfo=""
+            if len(listOfAdditionalInfo) == len(listOfImagePaths):
+                additionalInfo = listOfAdditionalInfo[i]
+            imageProbailitiesList[imgLabel] = {'imgPath':imgPath,'additionalInfo':additionalInfo}
             probDict={}
             for i, prob in enumerate(pred):
                 probDict[classDict[i]] = round(prob, 3)
@@ -140,7 +152,7 @@ if __name__ == "__main__":
 
     basePath = os.path.join(app.config['BASE_FOLDER'], 'NudityDetector')
     classDictionaryPath = os.path.join(basePath, 'Classes', 'ClassDictionary.json')
-    winningModelPath = os.path.join(basePath,r'Models\ModelOutput - NudiyDetector_Draft2\NudiyDetector_Draft2 - Accuracy 0.6.hdf5')
+    winningModelPath = os.path.join(basePath,r'C:\Users\omerro\Google Drive\Data Science Projects\OmerPortal\omerprojects\NudityDetector\Models\ModelOutput - NudiyDetector_Draft2\NudiyDetector_Draft2 - Accuracy 0.7.hdf5')
 
     listOfImageFiles = [
         r'C:\Users\omerro\Google Drive\Data Science Projects\OmerPortal\omerprojects\static\uploads\ERAN_RESCUE.jpg'
